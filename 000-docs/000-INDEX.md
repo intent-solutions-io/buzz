@@ -10,3 +10,4 @@ This directory is an Intent Solutions **addition** to the fork — upstream
 | 002 | [DR-DECR — Adoption decision record](002-DR-DECR-buzz-adoption-decision-record.md) | Why Buzz, alternatives, accepted risks, consequences. |
 | 003 | [OD-DEPL — Deploy posture (public-safe)](003-OD-DEPL-deploy-posture-public.md) | Hosting shape, wrapped update lane, edge controls, go-live gates. Operator detail lives in the private ops lane. |
 | 004 | [DR-DECR — Fork-gate wiring](004-DR-DECR-fork-gate-wiring.md) | TEST_AUDIT G6 decision: tracked `lefthook-local.yml` + fork gates + hash pinning; F1 resolution; escape-scan baseline. |
+| 005 | [DR-DECR — Dedicated production VPS topology](005-DR-DECR-dedicated-vps-topology.md) | Owner decision (2026-07-29): production on a dedicated VPS; the shared-host stack becomes permanent staging. Supersedes the one-server answer in `001`/`003`. |
