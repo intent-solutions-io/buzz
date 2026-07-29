@@ -235,7 +235,7 @@ operator repros → scoped fixes. Qualified first touches: upstream #3419
 this in Phase 4), #3399 (ACP runtime registry docs). Comment-first, DCO,
 human approval on every claim/PR.
 
-### Phase 7 — `buzz-ops` Claude Code plugin (E9)
+### Phase 7 — Intent Ops Buzz Plugin (E9)
 
 Depends on: E2 basics proven (the references are distilled from real
 runbooks, sanitized to generic). Four skills (`buzz-self-host`,
@@ -243,6 +243,33 @@ runbooks, sanitized to generic). Four skills (`buzz-self-host`,
 subagents (`buzz-relay-doctor`, `buzz-upgrade-auditor`); marketplace
 8-field frontmatter; all validation gates blocking; no estate hostnames,
 keys, or topology anywhere in the plugin.
+
+**Scope DEFERRED — gauge from the real install (owner call 2026-07-29).** We do
+NOT pre-spec the plugin's shape. Base Claude Code can already read the upstream
+docs and run compose, so a generic "install helper" is low-value and redundant.
+The plugin earns its place ONLY where it encodes **specialized operator
+knowledge the upstream docs don't carry and a general agent gets wrong** — the
+landmines surfaced by actually operating the relay (e.g. `/health` is a 404 so
+the real smoke is `_readiness` + NIP-11; the closed-relay identity-key ordering;
+the Tauri CORS trap #3490; the pairing sidecar #2734; the probe-hang #2723; the
+`buzz-admin` dev-credential fallback #2837; "upstream's backup is a checklist,
+not a backup"; the wrapped-updater vs naked Watchtower; the unauth HTTP probe
+matrix). **Decision rule:** run the E2/E3 install + setup + operate cycle first,
+capture what a general agent would have gotten wrong, THEN scope the plugin
+around exactly that gap (likely the two diagnostic subagents + a hardening/backup
+skill, not a tutorial).
+
+- **Branding:** Intent, model-agnostic (matches Buzz's ACP neutrality); never a
+  vendor/model name, per the estate's own-vocabulary rule. Working title
+  "Intent Ops Buzz Plugin" — not locked.
+- **Home:** its **own standalone repo** under `intent-solutions-io` (tentative;
+  not `jeremylongshore`), listed in the CCPI marketplace by reference, never
+  vendored into the monorepo — its release cadence tracks Buzz, not the
+  marketplace.
+- **Prior-art check (done 2026-07-29):** Buzz ships native agent-harness support
+  *for running an agent inside Buzz* (the `buzz-acp` ACP bridge), but no plugin
+  exists for *building/operating/self-hosting* a Buzz relay — genuine gap, not a
+  duplicate.
 
 ---
 
