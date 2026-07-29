@@ -74,7 +74,7 @@ three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
 
 | Epic | Phase | State | Evidence |
 |---|---|---|---|
-| E1 — Fork + repo infrastructure | 1 | **in progress** | this PR |
+| E1 — Fork + repo infrastructure | 1 | **COMPLETE** (2026-07-29) | PRs #2 #3 #5 + fork-gates PR; bead `buzz-4ei` closed; gates: additive-only + must-survive + escape-scan + hash-verify wired via `lefthook-local.yml` |
 | E2 — Relay hosting stack | 2 | not started | — |
 | E3 — Hardening + go-live gates | 2 | not started | — |
 | E4 — Headless administration | 2.5 | not started | — |
