@@ -75,15 +75,20 @@ three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
 | Epic | Phase | State | Evidence |
 |---|---|---|---|
 | E1 — Fork + repo infrastructure | 1 | **COMPLETE** (2026-07-29) | PRs #2 #3 #5 + fork-gates PR; bead `buzz-4ei` closed; gates: additive-only + must-survive + escape-scan + hash-verify wired via `lefthook-local.yml` |
-| E2 — Relay hosting stack (**re-designated STAGING**, `005`) | 2 | staging built, in flight (epic `buzz-ocv`: DNS + secrets + closed compose stack live; ingress live minus CSP; probes, backups/updater, Tauri-CORS, pairing sidecar open) | GH #8 · Plane BUZZ-2 |
-| E2d — Dedicated production host + cutover (Track D, `005`) | 2 | authored, gated on owner SSH-key install (epic `buzz-nry`) | GH #9 · Plane BUZZ-3 |
-| E3 — Hardening + go-live gates (run against PROD) | 2 | not started | — |
+| E2 — Relay hosting stack (**re-designated STAGING**, `005`) | 2 | staging live, in flight (epic `buzz-ocv`: DNS + secrets + closed compose stack live; own Caddy ingress live; backups real + restore drill PROVEN; open: Tauri-CORS, pairing sidecar, updater planted-fault drill, full smoke suite) | GH #8 · Plane BUZZ-2 |
+| E2d — Dedicated production host + cutover (Track D, `005`) | 2 | **prod host built + deployed + verified, pre-cutover** (epic `buzz-nry`; PRs #279 #280): `intent-ops-buzz` **production host** bootstrapped to estate conventions; prod relay deployed with fresh secrets serving `buzz-prod.intentsolutions.io`; functional membership probe GREEN, unauth matrix pass, caps verified. Apex `buzz.` cutover + owner desktop-key swap remain (owner-gated). | GH #9 · Plane BUZZ-3 |
+| E3 — Hardening + go-live gates (run against PROD) | 2 | in flight — membership probe + unauth HTTP matrix + resource caps + backup/restore PROVEN against prod; remaining BLOCKING: off-site backup leg, updater planted-fault drill (on staging), monitoring alerts exercised, full smoke suite, CORS client verify, pairing verify-or-documented, key runbooks rehearsed | — |
 | E4 — Headless administration | 2.5 | not started | — |
 | E5 — Team onboarding (all-in) | 3 | not started | — |
 | E6 — Agent bridge (`@claude`, isolated) | 4 | not started | — |
 | E7 — Governed-brain agent (`@bob`, BYOH) | 4 | staged (follow-up) | — |
-| E8 — Upstream contribution lane | 5 | qualified candidates filed | — |
-| E9 — `buzz-ops` marketplace plugin | 7 | not started | — |
+| ELab — Contributor laboratory (`intent-solutions-io/intent-ops-buzz` **repository**, Track C) | 6 | not started (repo not yet created — correct; depends on the naming record `006`) | — |
+| E8 — Upstream contribution lane (Track D) | 5 | qualified candidates filed | — |
+| E9 — Operator plugin (`intent-solutions-io/intent-ops-buzz-plugin`) | 7 | **DEFERRED** — scope gauged from the real install cycle (owner call 2026-07-29); repo not yet created | — |
+
+Asset names are governed by `006-DR-STND-authoritative-naming-and-boundaries.md`
+(canonical). Never write the bare phrase `intent-ops-buzz` — it is either the
+**production host** or the **repository**; always disambiguate.
 
 (Phase 6 of the adoption program — the LMS↔estate integration audit — lives
 entirely in the private operations repo; it has no epic here.)
@@ -235,7 +240,22 @@ operator repros → scoped fixes. Qualified first touches: upstream #3419
 this in Phase 4), #3399 (ACP runtime registry docs). Comment-first, DCO,
 human approval on every claim/PR.
 
-### Phase 7 — Intent Ops Buzz Plugin (E9)
+### Phase 6 — Contributor laboratory (ELab, Track C)
+
+Depends on: the naming record `006` (done). A **separate** repository —
+`intent-solutions-io/intent-ops-buzz` **repository** (NOT a fork, NOT the prod
+host of the same name) — that resolves any exact Buzz candidate, mirrors
+upstream CI, adds self-hosting/fault/deployment tests, compares against an exact
+upstream baseline, produces reusable PR evidence, and hands normalized
+`gate-result/v1` evidence to the Intent Eval Platform for the contribution and
+deployment gates (`006` §4–§5). The lab **executes**; IEP **decides**; the ops
+lane **records**; the host **runs**. Its full architecture (contrib.lock schema,
+pinned runner, `buzz-contrib` CLI, test profiles, CI workflows, IEP adapter,
+J-Rig dataset, evidence bundle, baseline run, contamination check) graduates
+from the parked draft to filed artifacts **in Track C** — not before, per the
+owner amendment's "no durable architecture docs until the naming record lands."
+
+### Phase 7 — Operator plugin (E9)
 
 Depends on: E2 basics proven (the references are distilled from real
 runbooks, sanitized to generic). Four skills (`buzz-self-host`,
@@ -260,12 +280,12 @@ around exactly that gap (likely the two diagnostic subagents + a hardening/backu
 skill, not a tutorial).
 
 - **Branding:** Intent, model-agnostic (matches Buzz's ACP neutrality); never a
-  vendor/model name, per the estate's own-vocabulary rule. Working title
-  "Intent Ops Buzz Plugin" — not locked.
-- **Home:** its **own standalone repo** under `intent-solutions-io` (tentative;
-  not `jeremylongshore`), listed in the CCPI marketplace by reference, never
-  vendored into the monorepo — its release cadence tracks Buzz, not the
-  marketplace.
+  vendor/model name, per the estate's own-vocabulary rule.
+- **Home:** its **own standalone repo** `intent-solutions-io/intent-ops-buzz-plugin`
+  (per the naming record `006`; not `jeremylongshore`), listed in the CCPI
+  marketplace by reference, never vendored into the monorepo — its release
+  cadence tracks Buzz, not the marketplace. The repo is not yet created (correct
+  — the scope is deferred).
 - **Prior-art check (done 2026-07-29):** Buzz ships native agent-harness support
   *for running an agent inside Buzz* (the `buzz-acp` ACP bridge), but no plugin
   exists for *building/operating/self-hosting* a Buzz relay — genuine gap, not a
