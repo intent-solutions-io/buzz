@@ -27,10 +27,16 @@ apply unchanged to all upstream code.
 | `FORK.md` | this contract |
 | `000-docs/` | Intent Solutions planning artifacts (master blueprint, decision record, deploy posture) |
 | `.beads/` (tracked subset) | task tracking for the adoption program (prefix `buzz`) |
-| `TEST_AUDIT.md` (when present) | testing-SOP baseline audit |
+| `TEST_AUDIT.md` | testing-SOP baseline audit |
+| `scripts/fork-gates/` | machine enforcement of this contract (additive-only + must-survive checks) |
+| `scripts/audit-harness` + `.audit-harness/` | vendored IS audit harness (escape-scan, hash verify) |
+| `.harness-hash` + `.harness-hash-extra-patterns` | hash-pin manifest for the fork policy surface |
+| `lefthook-local.yml` | fork-lane hook wiring (merged with upstream's lefthook.yml; see `000-docs/004`) |
 
-After any rebase: verify these paths exist, then `git diff upstream/main --stat`
-must show **only** paths from this table (plus any deliberately carried patch).
+After any rebase: run `scripts/fork-gates/check-must-survive.sh` then
+`scripts/fork-gates/check-additive-only.sh` — together they assert this table
+exists and that `git diff upstream/main` shows **only** paths from it (plus
+any deliberately carried patch named in the gate script).
 
 ## What is deliberately NOT here
 

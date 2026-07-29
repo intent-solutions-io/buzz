@@ -1,0 +1,26 @@
+# lefthook-local.yml — Intent Solutions FORK-LANE hooks (additive; upstream has
+# no lefthook-local.yml, and lefthook merges this file with upstream's
+# lefthook.yml automatically — upstream's hooks are untouched).
+#
+# What these guard (see FORK.md + TEST_AUDIT.md):
+#   - additive-only: the fork never modifies upstream-owned paths
+#   - must-survive: the fork's governance set survives rebases
+#   - escape-scan: nothing secret-shaped or REFUSE-patterned reaches a commit
+#     (this fork is PUBLIC; estate detail lives in the private ops repo)
+#   - verify: hash-pinned fork-owned files haven't drifted silently
+#
+# Decision record for this wiring: 000-docs/004-DR-DECR-fork-gate-wiring.md
+
+pre-commit:
+  commands:
+    fork-escape-scan:
+      run: scripts/audit-harness escape-scan --staged
+
+pre-push:
+  commands:
+    fork-additive-only:
+      run: scripts/fork-gates/check-additive-only.sh
+    fork-must-survive:
+      run: scripts/fork-gates/check-must-survive.sh
+    fork-harness-verify:
+      run: scripts/audit-harness verify

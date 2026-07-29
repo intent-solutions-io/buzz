@@ -1,0 +1,8 @@
+# Fork-lane hash-pin set (see TEST_AUDIT.md G4): the fork's policy/enforcement
+# surface. Any byte change to these must be a reviewed edit followed by
+# `scripts/audit-harness init`, never silent drift or rebase loss.
+FORK.md
+TEST_AUDIT.md
+000-docs/*.md
+scripts/fork-gates/*.sh
+lefthook-local.yml

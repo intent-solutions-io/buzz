@@ -1,0 +1,10 @@
+680d0ccd8bb9370dae1a87321fc7fbe3e0c6b90b015ec634362844f5c49a5640  000-docs/000-INDEX.md
+29e8af8382691a136ba14db2cc5f71b6a6b6e1144d06f3585adca45102876b06  000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md
+def765bd4f637f1b2cfe5abdb508837e3247b771c8530d0ef394a587c6adc250  000-docs/002-DR-DECR-buzz-adoption-decision-record.md
+611a23445500f94452f8ba047c6859b9400063bcff7cf87da21d404523ec3ca2  000-docs/003-OD-DEPL-deploy-posture-public.md
+9bcad2b30288a04687745e989a9779823ed16891c1e3c5fa8ae544fa3d814ca7  000-docs/004-DR-DECR-fork-gate-wiring.md
+71123f622998526d17e547f47cfa7b2855995fbbe79c698dfad9d8bbbdee40c5  FORK.md
+43f3750a570e82cfa0c0cdef6ff51d962f7dbd98f892b590c0a30955043c0ab4  TEST_AUDIT.md
+da2d266381d9209da59fcc6b06ca351e8eaf0b56470b5353557cc5eb48354761  lefthook-local.yml
+617c77e105076d668f330de5cb81234c9ec6367eea2a9191a89187ab45203358  scripts/fork-gates/check-additive-only.sh
+b016137292776d4b8230bb9cc04c3abed788db2e16db8669d199974667120f1f  scripts/fork-gates/check-must-survive.sh
