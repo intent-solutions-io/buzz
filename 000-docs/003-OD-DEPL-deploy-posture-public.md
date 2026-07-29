@@ -6,8 +6,16 @@ repo (`ops/buzz/` lane), never here.
 
 ## Shape
 
-- **One production host** (the existing estate VPS), one Caddy ingress, one
-  new self-contained compose stack beside the existing stacks: `buzz-relay`,
+> **Topology revised 2026-07-29 (decision `005`):** production runs on a
+> **dedicated VPS** with its **own** Caddy ingress (separate failure
+> domain). The stack described below, built on the shared estate host, is
+> **permanent staging**. Prod deploys the identical digest-pinned compose
+> with **fresh secrets — staging keys never promote**; `buzz.` DNS cuts
+> over at go-live and staging renames to `buzz-staging.intentsolutions.io`.
+> The per-service compose shape is otherwise as written here.
+
+- **Self-contained compose stack** (on staging today, mirrored to the
+  dedicated prod host): `buzz-relay`,
   `buzz-db` (Postgres 17), `buzz-redis` (Redis 7), `buzz-minio` (interim
   media store — upstream marks bundled MinIO eval-only; an S3-compatible
   external store is a follow-up bead). Volumes: pgdata, media, git repos.

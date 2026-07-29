@@ -2,7 +2,7 @@
 
 **Artifact:** 001-PP-PLAN — standing execution authority for this fork
 **Repo:** `intent-solutions-io/buzz` (fork of [`block/buzz`](https://github.com/block/buzz))
-**Status:** ACTIVE — Phase 1 in flight
+**Status:** ACTIVE — Phase 2 in flight (topology revised 2026-07-29, see `005`)
 **Rule of use:** execution prompts for any epic below are **extracted from this
 document — never re-derived per session**. Bead epics are hand-rolled FROM this
 blueprint (design-first, one epic at a time), each mirrored bead ↔ GitHub issue ↔
@@ -75,8 +75,9 @@ three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
 | Epic | Phase | State | Evidence |
 |---|---|---|---|
 | E1 — Fork + repo infrastructure | 1 | **COMPLETE** (2026-07-29) | PRs #2 #3 #5 + fork-gates PR; bead `buzz-4ei` closed; gates: additive-only + must-survive + escape-scan + hash-verify wired via `lefthook-local.yml` |
-| E2 — Relay hosting stack | 2 | not started | — |
-| E3 — Hardening + go-live gates | 2 | not started | — |
+| E2 — Relay hosting stack (**re-designated STAGING**, `005`) | 2 | staging built, in flight (epic `buzz-ocv`: DNS + secrets + closed compose stack live; ingress live minus CSP; probes, backups/updater, Tauri-CORS, pairing sidecar open) | GH #8 · Plane BUZZ-2 |
+| E2d — Dedicated production host + cutover (Track D, `005`) | 2 | authored, gated on owner SSH-key install (epic `buzz-nry`) | GH #9 · Plane BUZZ-3 |
+| E3 — Hardening + go-live gates (run against PROD) | 2 | not started | — |
 | E4 — Headless administration | 2.5 | not started | — |
 | E5 — Team onboarding (all-in) | 3 | not started | — |
 | E6 — Agent bridge (`@claude`, isolated) | 4 | not started | — |
@@ -110,15 +111,37 @@ entirely in the private operations repo; it has no epic here.)
 
 **Exit:** tracking exists; every subsequent step lands as a tracked bead.
 
-### Phase 2 — Relay hosting (E2) + hardening gates (E3)
+### Phase 2 — Relay hosting (E2 staging + E2d prod) + hardening gates (E3)
 
 Depends on: E1. Operator detail: private `ops/buzz/`.
 
-- E2: compose stack on the estate production host (relay, Postgres 17,
-  Redis 7, MinIO-for-now) beside existing stacks; the full closed-relay
-  configuration set from first boot (membership + auth-token enforcement,
-  owner pubkey, and the relay's stable identity private key); sops-managed
-  secrets; stable-release images pinned by digest.
+> **Topology (revised 2026-07-29, decision `005`):** production runs on a
+> **dedicated VPS**; the stack below, built on the shared estate host, is
+> **permanent staging** (drills + release promotion run there, never on
+> prod). Prod deploys the same digest-pinned compose with **fresh secrets —
+> staging keys never promote**; DNS cuts over at go-live and staging
+> renames to `buzz-staging.intentsolutions.io`.
+
+- E2 (staging, epic `buzz-ocv`): compose stack on the shared estate host
+  (relay, Postgres 17, Redis 7, MinIO-for-now) beside existing stacks; the
+  full closed-relay configuration set from first boot (membership +
+  auth-token enforcement, owner pubkey, and the relay's stable identity
+  private key); sops-managed secrets; stable-release images pinned by
+  digest. Includes the client-path defects surfaced by the external
+  infrastructure review (2026-07-29):
+  - **Tauri desktop origins** (upstream #3490): the packaged desktop
+    client presents its own origins; they must be in the relay CORS
+    allowlist or desktop join is blocked. No permissive-CORS shortcuts;
+    verify with the packaged client, not a dev build.
+  - **Mobile pairing sidecar** (upstream #2734 / PR #2736): the compose
+    bundle lacks the pairing sidecar; add an overlay service + ingress
+    route, and claim it works only after a real desktop↔mobile pairing.
+  - **`buzz-admin` rule** (upstream #2837): admin commands run only inside
+    the relay container (env present), never from the host without an
+    explicit `DATABASE_URL` — the dev-credential fallback is a trap.
+- E2d (prod, epic `buzz-nry`): bootstrap the dedicated host to estate
+  conventions → deploy the staging-proven artifacts with fresh secrets →
+  DNS cutover → all E3 gates re-run against prod.
 - E2b: **wrapped auto-update lane** (not naked `:latest` + auto-migrate):
   per stable release — stop/drain writes → bound snapshot (`pg_dump -Fc` +
   media/git snapshots taken as one named restorable recovery point) →
@@ -127,7 +150,16 @@ Depends on: E1. Operator detail: private `ops/buzz/`.
   failure auto-revert **in order**: stop the new release → restore every
   store from the bound recovery point → repin last-known-good digest →
   start → re-probe → alert. Update window is write-isolated, so the bound
-  snapshot loses nothing. RPO ≤ 24 h only for host-loss disasters.
+  snapshot loses nothing. RPO ≤ 24 h only for host-loss disasters. The
+  promotion checklist (external review, 2026-07-29) additionally requires:
+  release-notes review, a **staging boot**, a **probe-hang check**
+  (upstream #2723 / PR #2724 — the git-conformance probe can wedge
+  startup; our pinned digest boots healthy with
+  `BUZZ_GIT_CONFORMANCE_PROBE=true`, but a future image must prove it on
+  staging first), and a CORS/Tauri-origin + pairing regression check.
+  Upstream's own `backup` command is a checklist, not a backup — our
+  `pg_dump` + three-store recovery point stands; the off-site copy rides
+  the estate B2/borg chain (there is no "home server").
 - E3 (all BLOCKING before any invite goes out — the whole team lands at
   once, so hardening is not pilot-optional):
   - Edge compensating controls (body-size caps, timeouts, security headers,
