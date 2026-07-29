@@ -57,7 +57,7 @@ Each plane does exactly one job. The lab **executes** tests; the Intent Eval
 Platform **decides** what the evidence means; Intent OS **records** what is
 approved and running; the host **runs** it.
 
-```
+```text
  block/buzz  ◄──PR──  intent-solutions-io/buzz          (contribute: clean contrib/* branches)
                           │ candidate SHA
                           ▼

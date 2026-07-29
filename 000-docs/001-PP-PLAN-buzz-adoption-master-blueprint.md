@@ -90,8 +90,9 @@ Asset names are governed by `006-DR-STND-authoritative-naming-and-boundaries.md`
 (canonical). Never write the bare phrase `intent-ops-buzz` — it is either the
 **production host** or the **repository**; always disambiguate.
 
-(Phase 6 of the adoption program — the LMS↔estate integration audit — lives
-entirely in the private operations repo; it has no epic here.)
+(The LMS↔estate integration audit — an adjacent adoption-program workstream —
+lives entirely in the private operations repo; it has no phase or epic here.
+Phase 6 in this tree is the contributor laboratory, below.)
 
 ---
 
