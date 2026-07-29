@@ -15,9 +15,10 @@ apply unchanged to all upstream code.
   have. We never modify upstream-owned files (README.md, CONTRIBUTING.md,
   LICENSE, AGENTS.md, CLAUDE.md, TESTING.md, `.gitignore`, workflows, code).
   A dressing commit that touches an upstream path is a defect.
-- **Upstream contributions do not originate here.** Fixes headed upstream go
-  through a separate personal fork with DCO sign-off, comment-first per
-  upstream's CONTRIBUTING.
+- **Upstream contributions ride dedicated `contrib/*` branches** of this org
+  fork (owner call 2026-07-28: all Buzz lives in the org) — DCO sign-off,
+  comment-first per upstream's CONTRIBUTING, never mixed with the additive
+  governance files above.
 
 ## Must-survive set (files that must survive any rebase against upstream)
 

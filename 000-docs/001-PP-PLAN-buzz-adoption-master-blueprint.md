@@ -54,10 +54,11 @@ before ending.
   modify upstream-owned files (README, CONTRIBUTING, LICENSE, AGENTS.md,
   CLAUDE.md, TESTING.md, `.gitignore`, …). This keeps rebases against
   upstream conflict-free. See `FORK.md` for the must-survive set.
-- **Contribution lane is a separate personal fork** (`jeremylongshore/buzz`)
-  worked from the contribute-workspace: DCO sign-off, comment-first per
-  upstream CONTRIBUTING, small scoped changes. Upstream candidates are
-  tracked there / in the contribute system — not duplicated here.
+- **Contribution lane rides `contrib/*` branches of this org fork** (owner
+  call 2026-07-28 — all Buzz in the org; the briefly-used personal fork is
+  retired), worked from the contribute-workspace clone: DCO sign-off,
+  comment-first per upstream CONTRIBUTING, small scoped changes. Upstream
+  candidates are tracked in the contribute system — not duplicated here.
 
 ## Task tracking
 
@@ -171,9 +172,9 @@ the start; the legacy chat channel stays alive as fallback until Buzz holds
   reset it*; (b) *no one — not the owner, not an agent, not "support" — will
   EVER ask for your key; any such request is an attack: screenshot and
   report.*
-- Known onboarding risk (filed as fork issue #1 on the contribution fork's
-  tracker): a member with an existing Buzz identity from another community
-  hits "identity already connected" with no sign-out path.
+- Known onboarding risk (tracked as issue #4 on this fork): a member with
+  an existing Buzz identity from another community hits "identity already
+  connected" with no sign-out path.
 - Stability gate: two stable weeks → legacy channel formally retired; can't
   hold → fall back and re-evaluate.
 
