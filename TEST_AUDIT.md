@@ -107,4 +107,4 @@ Additive-only; every item is a **new file**; stage for review, never auto-commit
 6. `audit-harness init` — hash-pin manifest covering fork-owned files.
 7. Decide + implement hook wiring (G6): tracked `lefthook-local.yml` vs documented manual
    run vs fork-owned workflow file; record the decision in `000-docs/`.
-8. Update the `FORK.md` must-survive table to include `scripts/fork-gates/` and this file.
+8. Update the `FORK.md` must-survive table to include `scripts/fork-gates/` (this file is already listed there).

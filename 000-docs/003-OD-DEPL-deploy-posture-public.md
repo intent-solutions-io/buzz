@@ -21,21 +21,30 @@ repo (`ops/buzz/` lane), never here.
 
 Per new stable relay release, a scheduled updater executes:
 
-1. **Bound snapshot** — `pg_dump -Fc` + media/git snapshot markers taken at
-   the update event (never a stale daily as the restore point);
-2. **Promote by digest** (provenance verify when upstream publishes
+1. **Write isolation** — stop (or drain to read-only) the relay for the
+   update window, so nothing is written after the snapshot that a rollback
+   would silently destroy;
+2. **Bound recovery point** — `pg_dump -Fc` plus media-store and git-volume
+   snapshots taken back-to-back as ONE named, restorable recovery point
+   (never a stale daily as the restore point; "markers" alone are not
+   backups — each store must actually restore);
+3. **Promote by digest** (provenance verify when upstream publishes
    signatures);
-3. **Auto-migrate** (upstream migrations are embedded + advisory-locked),
+4. **Auto-migrate** (upstream migrations are embedded + advisory-locked),
    then a **functional probe** — a throwaway member key authenticates
    (NIP-42), publishes an event, reads it back; an un-invited key is
    refused. Liveness endpoints alone prove nothing.
-4. **On any probe failure: auto-revert** — repin last-known-good digest +
-   restore the bound snapshot + urgent alert. Bounded recovery, no 3 a.m.
+5. **On any probe failure: auto-revert, strictly ordered** — stop the new
+   release → restore every store from the bound recovery point (Postgres,
+   media, git — migrations are forward-only, so the prior image must never
+   start against migrated state) → repin the last-known-good digest →
+   start → re-run the probe → urgent alert. Bounded recovery, no 3 a.m.
    human.
 
-Stated RPO: ≤ minutes around updates; ≤ 24 h only for host-loss disasters
-(daily backup chain). Desktop and mobile clients self-update independently;
-the Nostr wire tolerates modest client/relay skew.
+Stated RPO: zero for the update window itself (write-isolated + bound
+snapshot); ≤ 24 h only for host-loss disasters (daily backup chain).
+Desktop and mobile clients self-update independently; the Nostr wire
+tolerates modest client/relay skew.
 
 ## Compensating edge controls
 

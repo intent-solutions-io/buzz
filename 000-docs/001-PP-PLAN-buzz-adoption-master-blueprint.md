@@ -26,8 +26,11 @@ before ending.
   Redis 7 + MinIO + optional Caddy. Published images `ghcr.io/block/buzz`
   (`:main` explicitly not for production).
 - Invite-only closed-relay mode is first-class (`BUZZ_REQUIRE_RELAY_MEMBERSHIP`
-  + `BUZZ_REQUIRE_AUTH_TOKEN` + `RELAY_OWNER_PUBKEY`); members via `buzz-admin`
-  or invite links. Keypairs generate client-side; NIP-42 auth per connection.
+  + `BUZZ_REQUIRE_AUTH_TOKEN` + `RELAY_OWNER_PUBKEY`, plus a stable
+  `BUZZ_RELAY_PRIVATE_KEY` — the relay's own identity, required for
+  membership enforcement to start; key material never documented, sops-held);
+  members via `buzz-admin` or invite links. Keypairs generate client-side;
+  NIP-42 auth per connection.
 - Clients: desktop mature; web client served by the relay; Android young but
   live; iOS lane still maturing.
 - Agents: `buzz-acp` bridge runs client-side on an operator machine, connects
@@ -111,13 +114,19 @@ entirely in the private operations repo; it has no epic here.)
 Depends on: E1. Operator detail: private `ops/buzz/`.
 
 - E2: compose stack on the estate production host (relay, Postgres 17,
-  Redis 7, MinIO-for-now) beside existing stacks; closed-relay trio from
-  first boot; sops-managed secrets; stable-release images pinned by digest.
+  Redis 7, MinIO-for-now) beside existing stacks; the full closed-relay
+  configuration set from first boot (membership + auth-token enforcement,
+  owner pubkey, and the relay's stable identity private key); sops-managed
+  secrets; stable-release images pinned by digest.
 - E2b: **wrapped auto-update lane** (not naked `:latest` + auto-migrate):
-  per stable release — bound snapshot (`pg_dump -Fc` + media/git markers) →
-  promote by digest → functional probe (member key authenticates, publishes,
-  reads back; un-invited key refused) → auto-revert + alert on any failure.
-  RPO ≤ minutes around updates; ≤ 24 h only for host-loss disasters.
+  per stable release — stop/drain writes → bound snapshot (`pg_dump -Fc` +
+  media/git snapshots taken as one named restorable recovery point) →
+  promote by digest → auto-migrate → functional probe (member key
+  authenticates, publishes, reads back; un-invited key refused) → on any
+  failure auto-revert **in order**: stop the new release → restore every
+  store from the bound recovery point → repin last-known-good digest →
+  start → re-probe → alert. Update window is write-isolated, so the bound
+  snapshot loses nothing. RPO ≤ 24 h only for host-loss disasters.
 - E3 (all BLOCKING before any invite goes out — the whole team lands at
   once, so hardening is not pilot-optional):
   - Edge compensating controls (body-size caps, timeouts, security headers,
