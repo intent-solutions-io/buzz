@@ -126,7 +126,7 @@ Depends on: E1. Operator detail: private `ops/buzz/`.
 > **permanent staging** (drills + release promotion run there, never on
 > prod). Prod deploys the same digest-pinned compose with **fresh secrets —
 > staging keys never promote**; DNS cuts over at go-live and staging
-> renames to `buzz-staging.intentsolutions.io`.
+> renames to `buzz-testing.intentsolutions.io`.
 
 - E2 (staging, epic `buzz-ocv`): compose stack on the shared estate host
   (relay, Postgres 17, Redis 7, MinIO-for-now) beside existing stacks; the
