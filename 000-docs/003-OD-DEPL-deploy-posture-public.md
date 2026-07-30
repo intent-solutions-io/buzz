@@ -11,7 +11,7 @@ repo (`ops/buzz/` lane), never here.
 > domain). The stack described below, built on the shared estate host, is
 > **permanent staging**. Prod deploys the identical digest-pinned compose
 > with **fresh secrets — staging keys never promote**; `buzz.` DNS cuts
-> over at go-live and staging renames to `buzz-staging.intentsolutions.io`.
+> over at go-live and staging renames to `buzz-testing.intentsolutions.io`.
 > The per-service compose shape is otherwise as written here.
 
 - **Self-contained compose stack** (on staging today, mirrored to the

@@ -42,7 +42,7 @@ this fork's public/private split.
   promote.**
 - **DNS cutover**: `buzz.intentsolutions.io` repoints to the dedicated host
   at go-live; the shared-host env renames to
-  `buzz-staging.intentsolutions.io` (closed, internal-only).
+  `buzz-testing.intentsolutions.io` (closed, internal-only).
 - **Go-live gates unchanged but re-targeted**: every blocking gate (unauth
   probe matrix off-network, functional membership probe, backup restore
   drill, updater planted-fault drill, key runbooks, resource caps) runs
