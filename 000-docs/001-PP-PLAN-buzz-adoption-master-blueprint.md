@@ -80,11 +80,15 @@ three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
 | E3 — Hardening + go-live gates (run against PROD) | 2 | in flight — membership probe + unauth HTTP matrix + resource caps + backup/restore PROVEN against prod; remaining BLOCKING: off-site backup leg, updater planted-fault drill (on staging), monitoring alerts exercised, full smoke suite, CORS client verify, pairing verify-or-documented, key runbooks rehearsed | — |
 | E4 — Headless administration | 2.5 | not started | — |
 | E5 — Team onboarding (all-in) | 3 | not started | — |
-| E6 — Agent bridge (`@claude`, isolated) | 4 | not started | — |
+| E6 — Agent bridge (isolated coding agent `goose minimax3`) | 4 | **LIVE on prod** (2026-07-30, decision-log/039, PR #301): `buzz-acp`+goose/MiniMax-M3 running as a member on the prod host, owner-gated + PR-gated, egress-isolated. Open: wire the prod PR loop (repo + scoped token + branch protection — owner inputs) | GH #? · PR #301 |
 | E7 — Governed-brain agent (`@bob`, BYOH) | 4 | staged (follow-up) | — |
 | ELab — Contributor laboratory (`intent-solutions-io/intent-ops-buzz` **repository**, Track C) | 6 | not started (repo not yet created — correct; depends on the naming record `006`) | — |
 | E8 — Upstream contribution lane (Track D) | 5 | qualified candidates filed | — |
 | E9 — Operator plugin (`intent-solutions-io/intent-ops-buzz-plugin`) | 7 | **DEFERRED** — scope gauged from the real install cycle (owner call 2026-07-29); repo not yet created | — |
+| E10 — Community channel layout & identity roster (`buzz-ehv`) | 3 | **build DONE (2026-07-31)** — clean provider-first open layout live (`0-general` pinned, `ask`, `ai-wire`, `anthropic-*` group, `<provider>-wire` + topic `*-wire`, private `sys-*`); persona agents purged; canonical names set; `ops/buzz/RUNBOOK-channels.md` (source-cited). Open: CCA-channel decision (owner-gated), member join/onboarding model | fork beads `buzz-ehv` |
+| E11 — Buzz operational expertise: reference + skill + agents (`buzz-yfe`) | 3 | **COMPLETE (2026-07-31)** — 2 source-cited references (`ops/buzz/reference/`, 100% citation-consistent with the fork); `buzz-ops` skill (PASS `/validate-skillmd`); 3 operator agents `buzz-ops`/`buzz-feed-curator`/`buzz-relay-admin` (PASS `/validate-agent`) | fork beads `buzz-yfe` |
+| E12 — AI-Wire feed engine (`buzz-w92`) | 4 | **posting primitive DONE**; ingestion pipeline next — `AI Wire` bot live, first cards posted to `ai-wire`+`0-general`. Children: pipeline (RSSHub+feed→LLM→card), easy/medium/hard feeds, Anthropic monitor-fleet wire, curation+digest, cron | fork beads `buzz-w92` |
+| E13 — Estate system notifications into `sys-*` (`buzz-0ts`) | 4 | **not started** (Track B) — `buzz-notify.sh`/`af_buzz_transport` → private `sys-*` channels, retiring Slack/notify/Moshi (keep off-estate floor + Ezekiel email) | fork beads `buzz-0ts` |
 
 Asset names are governed by `006-DR-STND-authoritative-naming-and-boundaries.md`
 (canonical). Never write the bare phrase `intent-ops-buzz` — it is either the
