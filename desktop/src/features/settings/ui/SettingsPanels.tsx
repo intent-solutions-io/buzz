@@ -201,7 +201,7 @@ export const settingsSections: SettingsSectionDescriptor[] = [
   },
   {
     value: "community-members",
-    label: "Invites",
+    label: "Members & invites",
     icon: Ticket,
   },
   {

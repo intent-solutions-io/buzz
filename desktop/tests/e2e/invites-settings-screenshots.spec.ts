@@ -31,7 +31,7 @@ test("capture: consolidated invites settings", async ({ page }) => {
 
   await expect(
     page.getByTestId("settings-nav-community-members"),
-  ).toContainText("Invites");
+  ).toContainText("Members & invites");
   await expect(
     page.getByRole("heading", { name: "Invites", exact: true }),
   ).toBeVisible();

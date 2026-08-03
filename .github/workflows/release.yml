@@ -155,16 +155,24 @@ jobs:
       - name: Build mesh llama native libraries
         if: steps.llama_cache.outputs.cache-hit != 'true'
         env:
-          MESH_REV_SHORT: ${{ steps.mesh_rev.outputs.short }}
+          MESH_REV: ${{ steps.mesh_rev.outputs.rev }}
         run: |
           set -euo pipefail
-          cargo fetch --manifest-path desktop/src-tauri/Cargo.toml
-          SHORT="$MESH_REV_SHORT"
-          MESH_ROOT=$(find "${CARGO_HOME:-$HOME/.cargo}/git/checkouts" -path "*/$SHORT" -type d -name "$SHORT" | head -1)
-          if [[ -z "$MESH_ROOT" ]]; then
-            echo "::error::mesh-llm checkout for $SHORT not found after cargo fetch"
+          # Check out the pinned mesh-llm rev directly instead of scraping
+          # Cargo's git/checkouts layout: `cargo fetch` only guarantees the bare
+          # clone under git/db, so the checkout dir the old `find` looked for is
+          # frequently absent and the step failed with "checkout not found".
+          MESH_ROOT="${RUNNER_TEMP:-/tmp}/mesh-llm-$MESH_REV"
+          rm -rf "$MESH_ROOT"
+          mkdir -p "$MESH_ROOT"
+          git -C "$MESH_ROOT" init -q
+          git -C "$MESH_ROOT" remote add origin https://github.com/Mesh-LLM/mesh-llm.git
+          git -C "$MESH_ROOT" fetch -q --depth 1 origin "$MESH_REV"
+          git -C "$MESH_ROOT" checkout -q --detach FETCH_HEAD
+          [[ -x "$MESH_ROOT/scripts/build-llama.sh" ]] || {
+            echo "::error::mesh-llm $MESH_REV checked out but scripts/build-llama.sh is missing"
             exit 1
-          fi
+          }
           export LLAMA_STAGE_BACKEND=metal
           export LLAMA_STAGE_BUILD_DIR="$GITHUB_WORKSPACE/.cache/mesh-llama/build-stage-abi-metal"
           export CMAKE_OSX_DEPLOYMENT_TARGET=10.15

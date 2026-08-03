@@ -9,6 +9,7 @@ export const WELCOME_CHANNEL_NAME = "Welcome";
 export const WELCOME_CHANNEL_DESCRIPTION =
   "A private channel for getting oriented in this community.";
 export const STARTER_GENERAL_CHANNEL_NAME = "general";
+export const STARTER_GENERAL_CHANNEL_ALIASES = ["0-general"] as const;
 export const STARTER_GENERAL_CHANNEL_DESCRIPTION =
   "General conversation and community updates.";
 export const STARTER_WELCOME_CHANNEL_NAME = "welcome-everyone";
@@ -77,11 +78,31 @@ function isOpenStreamStarterChannel(channel: Channel, name: string) {
   );
 }
 
-function findStarterChannel(channels: Channel[], name: string) {
-  return (
-    channels.find((channel) => isOpenStreamStarterChannel(channel, name)) ??
-    null
-  );
+// Resolve a starter channel by name, preferring `aliases` in the order given and
+// falling back to `name` last.
+//
+// The preference MUST come from the candidate order here, not from the order of
+// `channels`. A single `find` over a combined `name || aliases.some(...)` predicate
+// returns whichever candidate happens to appear first in the relay's channel list, so
+// a community holding BOTH `0-general` and `general` (production does) could send
+// desktop onboarding to a different General than the relay's invite auto-join picked —
+// that side ranks `0-general` first via `general_channel_rank`
+// (crates/buzz-relay/src/api/invites.rs). Order-dependent agreement between two
+// independent implementations is not agreement.
+function findStarterChannel(
+  channels: Channel[],
+  name: string,
+  aliases: readonly string[] = [],
+) {
+  for (const candidate of [...aliases, name]) {
+    const match = channels.find((channel) =>
+      isOpenStreamStarterChannel(channel, candidate),
+    );
+    if (match) {
+      return match;
+    }
+  }
+  return null;
 }
 
 export function findStarterChannels(
@@ -90,6 +111,7 @@ export function findStarterChannels(
   const generalChannel = findStarterChannel(
     channels,
     STARTER_GENERAL_CHANNEL_NAME,
+    STARTER_GENERAL_CHANNEL_ALIASES,
   );
   const welcomeChannel = findStarterChannel(
     channels,

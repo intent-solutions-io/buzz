@@ -401,8 +401,16 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=ghcr.io/block/buzz-push-gateway,push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
-          cache-from: type=registry,ref=ghcr.io/block/buzz-push-gateway-buildcache:${{ matrix.arch }}
-          cache-to: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('type=registry,ref=ghcr.io/block/buzz-push-gateway-buildcache:{0},mode=max,compression=zstd', matrix.arch) || '' }}
+          # Buildcache lives in the namespace of whichever org runs the
+          # workflow: GHCR login uses github.repository_owner, so a fork can
+          # only write its own namespace. Hardcoding block/ made every fork run
+          # fail the cache export with "permission_denied: The requested
+          # installation does not exist". Reads still fall back to block's
+          # public cache so a fork's first build is still warm.
+          cache-from: |
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/buzz-push-gateway-buildcache:${{ matrix.arch }}
+            type=registry,ref=ghcr.io/block/buzz-push-gateway-buildcache:${{ matrix.arch }}
+          cache-to: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('type=registry,ref=ghcr.io/{0}/buzz-push-gateway-buildcache:{1},mode=max,compression=zstd', github.repository_owner, matrix.arch) || '' }}
       - name: Export digest
         if: github.event_name != 'pull_request'
         env:
