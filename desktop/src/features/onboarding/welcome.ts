@@ -78,18 +78,31 @@ function isOpenStreamStarterChannel(channel: Channel, name: string) {
   );
 }
 
+// Resolve a starter channel by name, preferring `aliases` in the order given and
+// falling back to `name` last.
+//
+// The preference MUST come from the candidate order here, not from the order of
+// `channels`. A single `find` over a combined `name || aliases.some(...)` predicate
+// returns whichever candidate happens to appear first in the relay's channel list, so
+// a community holding BOTH `0-general` and `general` (production does) could send
+// desktop onboarding to a different General than the relay's invite auto-join picked —
+// that side ranks `0-general` first via `general_channel_rank`
+// (crates/buzz-relay/src/api/invites.rs). Order-dependent agreement between two
+// independent implementations is not agreement.
 function findStarterChannel(
   channels: Channel[],
   name: string,
   aliases: readonly string[] = [],
 ) {
-  return (
-    channels.find(
-      (channel) =>
-        isOpenStreamStarterChannel(channel, name) ||
-        aliases.some((alias) => isOpenStreamStarterChannel(channel, alias)),
-    ) ?? null
-  );
+  for (const candidate of [...aliases, name]) {
+    const match = channels.find((channel) =>
+      isOpenStreamStarterChannel(channel, candidate),
+    );
+    if (match) {
+      return match;
+    }
+  }
+  return null;
 }
 
 export function findStarterChannels(

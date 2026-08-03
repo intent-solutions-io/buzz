@@ -331,6 +331,40 @@ test("ensureStarterChannels reuses the canonical pinned 0-general channel", asyn
   assert.equal(ensureCalls, 0);
 });
 
+test("ensureStarterChannels prefers 0-general when both Generals exist", async () => {
+  // Production holds BOTH `general` and `0-general`. Listed with the legacy `general`
+  // FIRST, so a lookup whose preference came from channel order would pick it and
+  // disagree with the relay's invite auto-join, which ranks `0-general` first.
+  const legacyGeneral = makeChannel({
+    id: "legacy-general-channel",
+    name: "general",
+    visibility: "open",
+  });
+  const canonicalGeneral = makeChannel({
+    id: "canonical-general-channel",
+    name: "0-general",
+    visibility: "open",
+  });
+  const welcomeEveryone = makeChannel({
+    id: "welcome-everyone-channel",
+    name: "welcome-everyone",
+    visibility: "open",
+  });
+  let ensureCalls = 0;
+
+  const result = await ensureStarterChannels({
+    getChannels: async () => [legacyGeneral, canonicalGeneral, welcomeEveryone],
+    ensureStarterChannels: async () => {
+      ensureCalls += 1;
+      return [];
+    },
+  });
+
+  assert.equal(result.generalChannel, canonicalGeneral);
+  assert.equal(result.welcomeChannel, welcomeEveryone);
+  assert.equal(ensureCalls, 0);
+});
+
 test("ensureStarterChannels resumes when one starter channel is missing", async () => {
   const general = makeChannel({
     id: "general-channel",
