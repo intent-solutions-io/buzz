@@ -305,6 +305,32 @@ test("ensureStarterChannels reuses existing open starter channels", async () => 
   assert.equal(ensureCalls, 0);
 });
 
+test("ensureStarterChannels reuses the canonical pinned 0-general channel", async () => {
+  const general = makeChannel({
+    id: "canonical-general-channel",
+    name: "0-general",
+    visibility: "open",
+  });
+  const welcomeEveryone = makeChannel({
+    id: "welcome-everyone-channel",
+    name: "welcome-everyone",
+    visibility: "open",
+  });
+  let ensureCalls = 0;
+
+  const result = await ensureStarterChannels({
+    getChannels: async () => [general, welcomeEveryone],
+    ensureStarterChannels: async () => {
+      ensureCalls += 1;
+      return [];
+    },
+  });
+
+  assert.equal(result.generalChannel, general);
+  assert.equal(result.welcomeChannel, welcomeEveryone);
+  assert.equal(ensureCalls, 0);
+});
+
 test("ensureStarterChannels resumes when one starter channel is missing", async () => {
   const general = makeChannel({
     id: "general-channel",

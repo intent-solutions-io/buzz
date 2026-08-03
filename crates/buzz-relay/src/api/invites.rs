@@ -24,7 +24,9 @@ use axum::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::handlers::side_effects::{publish_nip43_member_added, publish_nip43_membership_list};
+use crate::handlers::side_effects::{
+    join_open_channel_member, publish_nip43_member_added, publish_nip43_membership_list,
+};
 use buzz_core::invite::{
     hash_v2_code, validate_v2_code, DEFAULT_INVITE_TTL_SECS, MAX_INVITE_TTL_SECS, MAX_INVITE_USES,
     MIN_INVITE_TTL_SECS, V2_PREFIX,
@@ -44,6 +46,41 @@ const CLAIM_RATE_LIMIT: u32 = 10;
 /// NIP-98 proves key ownership, not that a key is costly to create, so this
 /// bound is required in addition to expiry.
 pub(crate) const CLAIM_RATE_CACHE_CAPACITY: u64 = 10_000;
+
+fn general_channel_rank(name: &str) -> Option<u8> {
+    match name.trim().to_ascii_lowercase().as_str() {
+        // Intent communities pin General first in lexical channel lists.
+        "0-general" => Some(0),
+        "general" => Some(1),
+        _ => None,
+    }
+}
+
+async fn auto_join_general_channel(
+    tenant: &buzz_core::tenant::TenantContext,
+    state: &Arc<AppState>,
+    member_pubkey: &[u8],
+) -> anyhow::Result<Option<uuid::Uuid>> {
+    let channels = state
+        .db
+        .list_channels(tenant.community(), Some("open"))
+        .await?;
+    let general = channels
+        .iter()
+        .filter(|channel| {
+            channel.channel_type == "stream"
+                && channel.archived_at.is_none()
+                && general_channel_rank(&channel.name).is_some()
+        })
+        .min_by_key(|channel| general_channel_rank(&channel.name));
+
+    let Some(general) = general else {
+        return Ok(None);
+    };
+
+    join_open_channel_member(tenant, general.id, member_pubkey, state).await?;
+    Ok(Some(general.id))
+}
 
 /// Body for `POST /api/invites`.
 #[derive(Debug, Default, Deserialize)]
@@ -406,6 +443,13 @@ pub async fn claim_invite(
                     member = %claimer_hex,
                     "relay member added via v2 invite"
                 );
+                if let Err(e) = auto_join_general_channel(&tenant, &state, &pubkey.to_bytes()).await
+                {
+                    tracing::warn!(
+                        member = %claimer_hex,
+                        "failed to auto-join General after v2 invite claim: {e}"
+                    );
+                }
                 // NIP-43 side effects only on Joined, never on other outcomes.
                 if let Err(e) = publish_nip43_member_added(&tenant, &state, &claimer_hex).await {
                     tracing::warn!(
@@ -484,6 +528,12 @@ pub async fn claim_invite(
             member = %claimer_hex,
             "relay member added via invite"
         );
+        if let Err(e) = auto_join_general_channel(&tenant, &state, &pubkey.to_bytes()).await {
+            tracing::warn!(
+                member = %claimer_hex,
+                "failed to auto-join General after invite claim: {e}"
+            );
+        }
         if let Err(e) = publish_nip43_member_added(&tenant, &state, &claimer_hex).await {
             tracing::warn!("failed to publish NIP-43 member-added delta after claim: {e}");
         }
@@ -531,12 +581,22 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use super::{claim_key_rate_limited, CLAIM_RATE_LIMIT, MAX_INVITE_USES, MIN_INVITE_TTL_SECS};
+    use super::{
+        claim_key_rate_limited, general_channel_rank, CLAIM_RATE_LIMIT, MAX_INVITE_USES,
+        MIN_INVITE_TTL_SECS,
+    };
     use axum::{
         body::{to_bytes, Body},
         http::{header, Request, StatusCode},
     };
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+
+    #[test]
+    fn canonical_general_alias_is_preferred_for_invite_auto_join() {
+        assert_eq!(general_channel_rank("0-general"), Some(0));
+        assert_eq!(general_channel_rank(" General "), Some(1));
+        assert_eq!(general_channel_rank("welcome-everyone"), None);
+    }
     use hmac::{Hmac, KeyInit, Mac};
     use nostr::{EventBuilder, EventId, Keys, Kind, Tag};
     use serde_json::Value;

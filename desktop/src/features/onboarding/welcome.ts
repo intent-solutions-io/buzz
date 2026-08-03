@@ -9,6 +9,7 @@ export const WELCOME_CHANNEL_NAME = "Welcome";
 export const WELCOME_CHANNEL_DESCRIPTION =
   "A private channel for getting oriented in this community.";
 export const STARTER_GENERAL_CHANNEL_NAME = "general";
+export const STARTER_GENERAL_CHANNEL_ALIASES = ["0-general"] as const;
 export const STARTER_GENERAL_CHANNEL_DESCRIPTION =
   "General conversation and community updates.";
 export const STARTER_WELCOME_CHANNEL_NAME = "welcome-everyone";
@@ -77,10 +78,17 @@ function isOpenStreamStarterChannel(channel: Channel, name: string) {
   );
 }
 
-function findStarterChannel(channels: Channel[], name: string) {
+function findStarterChannel(
+  channels: Channel[],
+  name: string,
+  aliases: readonly string[] = [],
+) {
   return (
-    channels.find((channel) => isOpenStreamStarterChannel(channel, name)) ??
-    null
+    channels.find(
+      (channel) =>
+        isOpenStreamStarterChannel(channel, name) ||
+        aliases.some((alias) => isOpenStreamStarterChannel(channel, alias)),
+    ) ?? null
   );
 }
 
@@ -90,6 +98,7 @@ export function findStarterChannels(
   const generalChannel = findStarterChannel(
     channels,
     STARTER_GENERAL_CHANNEL_NAME,
+    STARTER_GENERAL_CHANNEL_ALIASES,
   );
   const welcomeChannel = findStarterChannel(
     channels,

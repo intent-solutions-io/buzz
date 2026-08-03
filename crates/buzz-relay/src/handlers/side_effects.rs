@@ -1928,15 +1928,17 @@ async fn handle_delete_group(
     Ok(())
 }
 
-async fn handle_join_request(
+/// Enroll a relay member in an open channel and publish the same membership
+/// side effects as a signed kind:9021 self-join.
+///
+/// Invite redemption uses this after relay admission so desktop and mobile
+/// clients observe the canonical General membership immediately.
+pub async fn join_open_channel_member(
     tenant: &TenantContext,
-    event: &Event,
+    channel_id: Uuid,
+    actor_bytes: &[u8],
     state: &Arc<AppState>,
-) -> anyhow::Result<()> {
-    let channel_id =
-        extract_h_tag_channel(event).ok_or_else(|| anyhow::anyhow!("missing h tag"))?;
-    let actor_bytes = event.pubkey.to_bytes().to_vec();
-
+) -> anyhow::Result<bool> {
     // Only open channels allow self-join via kind:9021.
     let channel = state
         .db
@@ -1952,11 +1954,11 @@ async fn handle_join_request(
     // Skip if already an active member — prevents duplicate join notifications.
     // Fail closed on DB errors rather than falling through to add_member.
     if state
-        .is_member_cached(tenant.community(), channel_id, &actor_bytes)
+        .is_member_cached(tenant.community(), channel_id, actor_bytes)
         .await?
     {
-        info!(channel = %channel_id, "kind:9021 join — already a member, skipping");
-        return Ok(());
+        info!(channel = %channel_id, "open-channel join — already a member, skipping");
+        return Ok(false);
     }
 
     // Add as member (idempotent — add_member handles duplicates).
@@ -1965,14 +1967,14 @@ async fn handle_join_request(
         .add_member(
             tenant.community(),
             channel_id,
-            &actor_bytes,
+            actor_bytes,
             buzz_db::channel::MemberRole::Member,
             None,
         )
         .await?;
-    state.invalidate_membership(tenant, channel_id, &actor_bytes);
+    state.invalidate_membership(tenant, channel_id, actor_bytes);
 
-    let actor_hex = hex::encode(&actor_bytes);
+    let actor_hex = hex::encode(actor_bytes);
     emit_system_message(
         tenant,
         state,
@@ -1993,8 +1995,8 @@ async fn handle_join_request(
         tenant,
         state,
         channel_id,
-        &actor_bytes,
-        &actor_bytes,
+        actor_bytes,
+        actor_bytes,
         buzz_core::kind::KIND_MEMBER_ADDED_NOTIFICATION,
     )
     .await
@@ -2002,6 +2004,20 @@ async fn handle_join_request(
         warn!("membership notification for join failed: {e}");
     }
 
+    info!(channel = %channel_id, "open-channel join processed");
+    Ok(true)
+}
+
+async fn handle_join_request(
+    tenant: &TenantContext,
+    event: &Event,
+    state: &Arc<AppState>,
+) -> anyhow::Result<()> {
+    let channel_id =
+        extract_h_tag_channel(event).ok_or_else(|| anyhow::anyhow!("missing h tag"))?;
+    let actor_bytes = event.pubkey.to_bytes();
+
+    join_open_channel_member(tenant, channel_id, &actor_bytes, state).await?;
     info!(channel = %channel_id, "kind:9021 join processed");
     Ok(())
 }

@@ -290,6 +290,12 @@ fn starter_match_requires_open_unarchived_stream_by_normalized_name() {
 
     assert!(is_matching_starter_channel(&channel, spec));
 
+    channel.name = "0-General".to_string();
+    assert!(
+        is_matching_starter_channel(&channel, spec),
+        "the canonical pinned General alias must be reused and joined"
+    );
+
     channel.visibility = "private".to_string();
     assert!(!is_matching_starter_channel(&channel, spec));
 

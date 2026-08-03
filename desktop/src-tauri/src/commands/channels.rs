@@ -16,6 +16,7 @@ const STARTER_CHANNEL_NAMESPACE: uuid::Uuid = uuid::uuid!("3ce33bea-8f09-5f1b-9c
 struct StarterChannelSpec {
     slug: &'static str,
     name: &'static str,
+    aliases: &'static [&'static str],
     description: &'static str,
 }
 
@@ -23,11 +24,16 @@ const STARTER_CHANNELS: &[StarterChannelSpec] = &[
     StarterChannelSpec {
         slug: "general",
         name: "general",
+        // Existing communities may pin General first in lexical channel lists
+        // by naming it `0-general`. Treat that established channel as the
+        // starter instead of creating a duplicate `general` channel.
+        aliases: &["0-general"],
         description: "General conversation and community updates.",
     },
     StarterChannelSpec {
         slug: "welcome-everyone",
         name: "welcome-everyone",
+        aliases: &[],
         description: "Say hi, ask a question, or share what brought you here.",
     },
 ];
@@ -479,7 +485,12 @@ fn is_duplicate_channel_rejection(error: &str) -> bool {
 }
 
 fn is_matching_starter_channel(channel: &ChannelInfo, spec: &StarterChannelSpec) -> bool {
-    normalize_channel_name(&channel.name) == normalize_channel_name(spec.name)
+    let normalized_name = normalize_channel_name(&channel.name);
+    (normalized_name == normalize_channel_name(spec.name)
+        || spec
+            .aliases
+            .iter()
+            .any(|alias| normalized_name == normalize_channel_name(alias)))
         && channel.channel_type == "stream"
         && channel.visibility == "open"
         && channel.archived_at.is_none()
