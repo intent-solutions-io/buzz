@@ -1,0 +1,37 @@
+# fork-gates.yml — Intent Solutions FORK-LANE CI (additive; upstream block/buzz
+# does not carry this file — it is a declared divergence listed in FORK.md's
+# must-survive table and the fork-gate allowlist).
+#
+# Enforces the FORK.md contract at the merge boundary: the fork is additive-only
+# (no upstream-owned path may differ from upstream/main outside the allowlist)
+# and the must-survive governance set exists. These same checks run locally via
+# lefthook-local.yml pre-push; CI is the enforcement that cannot be skipped —
+# the 2026-08-03 breach (PR #16, audit 000-docs/007-AA-AUDR-*) merged precisely
+# because the gates were local-only.
+name: Fork Gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fork-gates:
+    name: fork-contract (additive-only + must-survive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Fetch upstream block/buzz main
+        run: |
+          git remote add upstream https://github.com/block/buzz.git
+          git fetch --quiet upstream main
+      - name: Additive-only check (diff vs upstream/main is allowlist-only)
+        run: bash scripts/fork-gates/check-additive-only.sh upstream/main
+      - name: Must-survive check (governance set intact)
+        run: bash scripts/fork-gates/check-must-survive.sh

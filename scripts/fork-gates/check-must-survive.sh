@@ -19,6 +19,8 @@ MUST_SURVIVE=(
   "scripts/fork-gates/check-must-survive.sh"
   "scripts/audit-harness"
   ".audit-harness/VERSION"
+  "CLAUDE.md"
+  ".github/workflows/fork-gates.yml"
 )
 
 missing=0

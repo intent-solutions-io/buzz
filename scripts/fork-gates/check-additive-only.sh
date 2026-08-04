@@ -32,6 +32,11 @@ ALLOW=(
   ".audit-harness/"
   ".harness-hash"
   ".harness-hash-extra-patterns"
+  # The two DECLARED divergences from upstream-owned paths (FORK.md must-survive
+  # table). CLAUDE.md is upstream's symlink to AGENTS.md, replaced here with the
+  # fork-contract briefing; fork-gates.yml is this contract's CI enforcement.
+  "CLAUDE.md"
+  ".github/workflows/fork-gates.yml"
 )
 # Deliberately carried patches (normally empty — populate ONLY when we carry a
 # fix upstream hasn't merged, and remove the entry once upstream merges it).
