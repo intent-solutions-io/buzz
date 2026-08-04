@@ -30,6 +30,8 @@ ALLOW=(
   "scripts/fork-gates/"
   "scripts/audit-harness"
   ".audit-harness/"
+  ".harness-hash"
+  ".harness-hash-extra-patterns"
 )
 # Deliberately carried patches (normally empty — populate ONLY when we carry a
 # fix upstream hasn't merged, and remove the entry once upstream merges it).
