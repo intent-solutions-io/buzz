@@ -13,8 +13,17 @@ apply unchanged to all upstream code.
   if/when we carry a patch upstream hasn't merged yet.
 - **Additive-only:** every Intent Solutions file is one upstream does not
   have. We never modify upstream-owned files (README.md, CONTRIBUTING.md,
-  LICENSE, AGENTS.md, CLAUDE.md, TESTING.md, `.gitignore`, workflows, code).
-  A dressing commit that touches an upstream path is a defect.
+  LICENSE, AGENTS.md, TESTING.md, `.gitignore`, workflows, code).
+  A dressing commit that touches an upstream path is a defect — breached once
+  (PR #16, reverted; audit `000-docs/007-AA-AUDR-fork-contract-breach-2026-08-03.md`).
+  **Exactly two declared divergences** are exempt and gate-allowlisted:
+  `CLAUDE.md` (upstream's symlink to AGENTS.md, replaced with the fork-contract
+  briefing) and `.github/workflows/fork-gates.yml` (this contract's CI
+  enforcement, a **required check** on `main`).
+- **No customization:** while upstream is in active development we do not
+  customize Buzz at all. Solved problems go **upstream** through the
+  contribution system (dossier, issue-before-PR, upstream conventions) —
+  never onto fork `main`.
 - **Upstream contributions ride dedicated `contrib/*` branches** of this org
   fork (owner call 2026-07-28: all Buzz lives in the org) — DCO sign-off,
   comment-first per upstream's CONTRIBUTING, never mixed with the additive
@@ -32,6 +41,8 @@ apply unchanged to all upstream code.
 | `scripts/audit-harness` + `.audit-harness/` | vendored IS audit harness (escape-scan, hash verify) |
 | `.harness-hash` + `.harness-hash-extra-patterns` | hash-pin manifest for the fork policy surface |
 | `lefthook-local.yml` | fork-lane hook wiring (merged with upstream's lefthook.yml; see `000-docs/004`) |
+| `CLAUDE.md` | declared divergence: replaces upstream's AGENTS.md symlink with the fork-contract briefing |
+| `.github/workflows/fork-gates.yml` | declared divergence: CI enforcement of this contract (required check on `main`) |
 
 After any rebase: run `scripts/fork-gates/check-must-survive.sh` then
 `scripts/fork-gates/check-additive-only.sh` — together they assert this table
