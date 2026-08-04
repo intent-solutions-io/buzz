@@ -27,7 +27,9 @@ contribution system, not onto fork `main`.
 
 ## 2. Divergence inventory (fork `main` `71ad4571c` vs `upstream/main`)
 
-`git diff upstream/main...origin/main --name-status` shows 73 divergent paths.
+`git diff 631b05c88...71ad4571c --name-status` (pinned object IDs — the same
+refs `upstream/main`/`origin/main` resolved to at audit time) shows 73
+divergent paths.
 Classification against the `scripts/fork-gates/check-additive-only.sh`
 allowlist:
 
@@ -100,8 +102,10 @@ in a required check.**
 ## 4. What was NOT damaged
 
 - **Production relay:** runs the **upstream published image**, digest-pinned
-  (`ghcr.io/block/buzz@sha256:a0f67…`). The fork relay image built during the
-  #16 session was **never deployed**.
+  (`ghcr.io/block/buzz@sha256:a0f67…` — digest deliberately truncated here;
+  this fork is public, and full deployment evidence lives in the private ops
+  lane's deployment reference). The fork relay image built during the #16
+  session was **never deployed**.
 - **Agent runtime:** `buzz-agent:fork-9b0ff3c92` is a **sanctioned** estate
   artifact (private ops decision log entry 039), built from an allowlisted
   fork state — unrelated to the breach.
@@ -120,24 +124,30 @@ The unit is dormant (timer not enabled). **Verify the tag resolves — or
 re-pin to a digest — before the timer is ever enabled.** Tracked in the
 adoption program's beads.
 
-## 6. Remediation (executed after this audit)
+## 6. Remediation plan (filed with this audit; execution tracked in PRs)
+
+This record is filed **before** remediation completes; each step's completion
+evidence is its referenced PR, not this document.
 
 1. **Revert** the #16 squash on fork `main` via PR — no force-push, no
-   history rewrite.
+   history rewrite. → fork **PR #18**.
 2. **Land the repair branch** `fix/fork-upstream-sync-20260803` (merge-based
    upstream sync to `a5dbdf5e6`, 117 commits + gate-allowlist fix for §2.3)
-   via PR; upstream-path collisions resolve to **upstream's side**.
+   via PR; upstream-path collisions resolve to **upstream's side**. → fork
+   **PR #19**.
 3. **Route the solved problems upstream** through the contribution system
    (dossier, issue-before-PR, upstream conventions) — the invite-claim fix,
    the CI-brittleness findings, and the buildcache finding are candidates.
-   No direct upstream PRs outside that lane.
-4. **Never again:** fork gates become an **additive** CI workflow
-   (`.github/workflows/fork-gates.yml`) and a **required check** on `main`;
-   the fork gains a declared-divergence `CLAUDE.md` stating the contract for
-   every future agent; both divergences enter `ALLOW` + FORK.md's
-   must-survive table in the same reviewed PR.
+   No direct upstream PRs outside that lane. Submission runs on the
+   contribution system's cadence, not this audit's.
+4. **Never again** (planned; PR reference lands when opened): fork gates
+   become an **additive** CI workflow (`.github/workflows/fork-gates.yml`)
+   and a **required check** on `main`; the fork gains a declared-divergence
+   `CLAUDE.md` stating the contract for every future agent; both divergences
+   enter `ALLOW` + FORK.md's must-survive table in the same reviewed PR.
 
-**Acceptance for "remediated":** both fork-gate scripts PASS on restored
-`main`; `git diff upstream/main...main` contains only allowlisted paths; a
-deliberate canary PR touching `crates/…` goes red on the required check and
-is closed unmerged.
+**Acceptance for "remediated"** (conditions to verify at completion, then
+recorded in the closing PR): both fork-gate scripts PASS on restored `main`;
+`git diff upstream/main...main` contains only allowlisted paths; a deliberate
+canary PR touching `crates/…` goes red on the required check and is closed
+unmerged.
