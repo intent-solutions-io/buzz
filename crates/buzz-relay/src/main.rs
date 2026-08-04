@@ -2031,3 +2031,5 @@ mod tests {
         assert_eq!(idle_timeout_secs(Some(10), 1_000), 3_000);
     }
 }
+
+// canary: deliberate upstream-path touch — this PR must go RED on the fork-contract required check and be closed unmerged (audit 000-docs/007 acceptance proof)
