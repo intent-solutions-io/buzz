@@ -82,21 +82,19 @@ three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
 | E5 — Team onboarding (all-in) | 3 | not started | — |
 | E6 — Agent bridge (isolated coding agent `goose minimax3`) | 4 | **LIVE on prod** (2026-07-30, decision-log/039, PR #301): `buzz-acp`+goose/MiniMax-M3 running as a member on the prod host, owner-gated + PR-gated, egress-isolated. Open: wire the prod PR loop (repo + scoped token + branch protection — owner inputs) | GH #? · PR #301 |
 | E7 — Governed-brain agent (`@bob`, BYOH) | 4 | staged (follow-up) | — |
-| ELab — Contributor laboratory (`intent-solutions-io/intent-ops-buzz` **repository**, Track C) | 6 | not started (repo not yet created — correct; depends on the naming record `006`) | — |
 | E8 — Upstream contribution lane (Track D) | 5 | qualified candidates filed | — |
-| E9 — Operator plugin (`intent-solutions-io/intent-ops-buzz-plugin`) | 7 | **DEFERRED** — scope gauged from the real install cycle (owner call 2026-07-29); repo not yet created | — |
+| E9 — Operator plugin | 7 | **DEFERRED** — scope gauged from the real install cycle (owner call 2026-07-29). No repo exists or is reserved; if it is ever built, it is named then (`006` Revision 2026-08-07) | — |
 | E10 — Community channel layout & identity roster (`buzz-ehv`) | 3 | **build DONE (2026-07-31)** — clean provider-first open layout live (`0-general` pinned, `ask`, `ai-wire`, `anthropic-*` group, `<provider>-wire` + topic `*-wire`, private `sys-*`); persona agents purged; canonical names set; `ops/buzz/RUNBOOK-channels.md` (source-cited). Open: CCA-channel decision (owner-gated), member join/onboarding model | fork beads `buzz-ehv` |
 | E11 — Buzz operational expertise: reference + skill + agents (`buzz-yfe`) | 3 | **COMPLETE (2026-07-31)** — 2 source-cited references (`ops/buzz/reference/`, 100% citation-consistent with the fork); `buzz-ops` skill (PASS `/validate-skillmd`); 3 operator agents `buzz-ops`/`buzz-feed-curator`/`buzz-relay-admin` (PASS `/validate-agent`) | fork beads `buzz-yfe` |
 | E12 — AI-Wire feed engine (`buzz-w92`) | 4 | **posting primitive DONE**; ingestion pipeline next — `AI Wire` bot live, first cards posted to `ai-wire`+`0-general`. Children: pipeline (RSSHub+feed→LLM→card), easy/medium/hard feeds, Anthropic monitor-fleet wire, curation+digest, cron | fork beads `buzz-w92` |
 | E13 — Estate system notifications into `sys-*` (`buzz-0ts`) | 4 | **not started** (Track B) — `buzz-notify.sh`/`af_buzz_transport` → private `sys-*` channels, retiring Slack/notify/Moshi (keep off-estate floor + Ezekiel email) | fork beads `buzz-0ts` |
 
 Asset names are governed by `006-DR-STND-authoritative-naming-and-boundaries.md`
-(canonical). Never write the bare phrase `intent-ops-buzz` — it is either the
-**production host** or the **repository**; always disambiguate.
+(canonical). `intent-ops-buzz` is the **production host** — a VPS, not a repo.
+There are exactly two Buzz repositories: upstream `block/buzz` and this fork.
 
 (The LMS↔estate integration audit — an adjacent adoption-program workstream —
-lives entirely in the private operations repo; it has no phase or epic here.
-Phase 6 in this tree is the contributor laboratory, below.)
+lives entirely in the private operations repo; it has no phase or epic here.)
 
 ---
 
@@ -245,20 +243,24 @@ operator repros → scoped fixes. Qualified first touches: upstream #3419
 this in Phase 4), #3399 (ACP runtime registry docs). Comment-first, DCO,
 human approval on every claim/PR.
 
-### Phase 6 — Contributor laboratory (ELab, Track C)
+### Phase 6 — Contributor laboratory (ELab, Track C) — CLOSED, deferred indefinitely (2026-08-07)
 
-Depends on: the naming record `006` (done). A **separate** repository —
-`intent-solutions-io/intent-ops-buzz` **repository** (NOT a fork, NOT the prod
-host of the same name) — that resolves any exact Buzz candidate, mirrors
-upstream CI, adds self-hosting/fault/deployment tests, compares against an exact
-upstream baseline, produces reusable PR evidence, and hands normalized
-`gate-result/v1` evidence to the Intent Eval Platform for the contribution and
-deployment gates (`006` §4–§5). The lab **executes**; IEP **decides**; the ops
-lane **records**; the host **runs**. Its full architecture (contrib.lock schema,
-pinned runner, `buzz-contrib` CLI, test profiles, CI workflows, IEP adapter,
-J-Rig dataset, evidence bundle, baseline run, contamination check) graduates
-from the parked draft to filed artifacts **in Track C** — not before, per the
-owner amendment's "no durable architecture docs until the naming record lands."
+**Not built, and no repository was ever created for it.** Track C proposed a
+separate contribution-laboratory repo that would resolve any exact Buzz
+candidate, mirror upstream CI, add self-hosting/fault/deployment tests, and hand
+normalized `gate-result/v1` evidence to the Intent Eval Platform for the two
+gates (`006` §4). Demand never materialized: the contribution practice has
+produced one upstream PR (`block/buzz#4722`) that needed no lab, and the
+flagship candidate the lab was designed to verify was dropped — Block fixed the
+relay half independently (`#4196`) and the desktop half turned out to be a
+fork-local defect.
+
+The architecture draft is parked, not lost: `intent-os`
+`ops/buzz/PLAN-contrib-lab-architecture.md`, marked DEFERRED, with the
+un-parking conditions stated in its header. Its 0–6 test-layer taxonomy and
+fault-injection matrix apply to the relay we run **today** and are useful
+independent of any lab repo. Retirement record: `006` Revision 2026-08-07 and
+`intent-os` `decision-log/048`.
 
 ### Phase 7 — Operator plugin (E9)
 
@@ -286,11 +288,11 @@ skill, not a tutorial).
 
 - **Branding:** Intent, model-agnostic (matches Buzz's ACP neutrality); never a
   vendor/model name, per the estate's own-vocabulary rule.
-- **Home:** its **own standalone repo** `intent-solutions-io/intent-ops-buzz-plugin`
-  (per the naming record `006`; not `jeremylongshore`), listed in the CCPI
-  marketplace by reference, never vendored into the monorepo — its release
-  cadence tracks Buzz, not the marketplace. The repo is not yet created (correct
-  — the scope is deferred).
+- **Home:** its **own standalone repo** under `intent-solutions-io` (not
+  `jeremylongshore`), listed in the CCPI marketplace by reference, never
+  vendored into the monorepo — its release cadence tracks Buzz, not the
+  marketplace. No repo exists or is name-reserved; the name is chosen if and
+  when the scope is un-deferred (`006` Revision 2026-08-07).
 - **Prior-art check (done 2026-07-29):** Buzz ships native agent-harness support
   *for running an agent inside Buzz* (the `buzz-acp` ACP bridge), but no plugin
   exists for *building/operating/self-hosting* a Buzz relay — genuine gap, not a

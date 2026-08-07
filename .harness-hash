@@ -1,10 +1,11 @@
-7c51b2422a2578ab34c9415f1bcb9456bf2ca0c6f6dbe6d828c35d2dbd7dc8b4  000-docs/000-INDEX.md
-a95f7d4b328f506d53ccc028486f80e79cd7854b7985e838ec6913af21a47f33  000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md
+5db9ab53608e79f71b30390a0eeb3c9135240ab75537427aa1584cc98b8b74c9  000-docs/000-INDEX.md
+751efad144e8ee08fa4f1308b7e730fac20ccc9d7a28a489b34e47b37251483e  000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md
 def765bd4f637f1b2cfe5abdb508837e3247b771c8530d0ef394a587c6adc250  000-docs/002-DR-DECR-buzz-adoption-decision-record.md
 5030aaf8545985489095cc6f48badee6981f4f2db7b2ba9879877f4bb6bfb755  000-docs/003-OD-DEPL-deploy-posture-public.md
 9bcad2b30288a04687745e989a9779823ed16891c1e3c5fa8ae544fa3d814ca7  000-docs/004-DR-DECR-fork-gate-wiring.md
 75b5b1253248fd4f04aebfae36efeb2ce48323a567d4ca63d59e0d67667789f6  000-docs/005-DR-DECR-dedicated-vps-topology.md
-27bf0d046df299a1662b8c86b4b8a9da1e0c8e14e98c0919d2873014c1080b47  000-docs/006-DR-STND-authoritative-naming-and-boundaries.md
+1d398003b3119d55fc743da24a048446d73c2f9683dbfee2361abae8281e90ed  000-docs/006-DR-STND-authoritative-naming-and-boundaries.md
+d47f82f7f176ad3fbd87d6e6d6acd8248a2347439de6df6ed3d16f643669088f  000-docs/007-AA-AUDR-fork-contract-breach-2026-08-03.md
 d1c85ad5bafc4b6eb1f78ec888746f66f45e87cb9fd9d84122cfdd59994821c4  FORK.md
 43f3750a570e82cfa0c0cdef6ff51d962f7dbd98f892b590c0a30955043c0ab4  TEST_AUDIT.md
 da2d266381d9209da59fcc6b06ca351e8eaf0b56470b5353557cc5eb48354761  lefthook-local.yml
