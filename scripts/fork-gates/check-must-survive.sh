@@ -10,6 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 MUST_SURVIVE=(
   "FORK.md"
+  "REVIEW.md"
   "TEST_AUDIT.md"
   "000-docs/000-INDEX.md"
   "000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md"
