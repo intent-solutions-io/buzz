@@ -21,9 +21,10 @@ had never been created and now never will be:
 - `intent-solutions-io/intent-ops-buzz` — the Track-C **contributor lab**.
   Track C is closed as deferred-indefinitely: the contribution practice has
   produced one upstream PR (`block/buzz#4722`) that needed no lab, and the
-  flagship candidate the lab was designed to verify was dropped (Block fixed
-  the relay half independently in `#4196`; the desktop half was a fork-local
-  defect). Its parked architecture draft now lives at `intent-os`
+  flagship candidate the lab was designed to verify was dropped — Block has its
+  own upstream fix for the relay half in flight (`#4196`, open at time of
+  writing), and the desktop half was a fork-local defect that had no business
+  on fork `main`. Its parked architecture draft now lives at `intent-os`
   `ops/buzz/PLAN-contrib-lab-architecture.md`, marked DEFERRED — the test-layer
   taxonomy and fault matrix in it apply to the relay we run **today**,
   independent of any lab repo.

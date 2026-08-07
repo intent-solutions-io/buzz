@@ -251,9 +251,9 @@ candidate, mirror upstream CI, add self-hosting/fault/deployment tests, and hand
 normalized `gate-result/v1` evidence to the Intent Eval Platform for the two
 gates (`006` §4). Demand never materialized: the contribution practice has
 produced one upstream PR (`block/buzz#4722`) that needed no lab, and the
-flagship candidate the lab was designed to verify was dropped — Block fixed the
-relay half independently (`#4196`) and the desktop half turned out to be a
-fork-local defect.
+flagship candidate the lab was designed to verify was dropped — Block has its own
+upstream fix for the relay half in flight (`#4196`, open at time of writing), and
+the desktop half turned out to be a fork-local defect.
 
 The architecture draft is parked, not lost: `intent-os`
 `ops/buzz/PLAN-contrib-lab-architecture.md`, marked DEFERRED, with the
