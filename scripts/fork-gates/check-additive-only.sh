@@ -22,6 +22,7 @@ fi
 # human contract; this array is its machine form).
 ALLOW=(
   "FORK.md"
+  "REVIEW.md"
   "TEST_AUDIT.md"
   "000-docs/"
   ".beads/"

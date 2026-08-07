@@ -34,6 +34,7 @@ apply unchanged to all upstream code.
 | Path | Purpose |
 |---|---|
 | `FORK.md` | this contract |
+| `REVIEW.md` | fork-specific guidance for the automated PR reviewer (contract, lanes, disclosure, severity) |
 | `000-docs/` | Intent Solutions planning artifacts (master blueprint, decision record, deploy posture) |
 | `.beads/` (tracked subset) | task tracking for the adoption program (prefix `buzz`) |
 | `TEST_AUDIT.md` | testing-SOP baseline audit |
