@@ -67,12 +67,19 @@ this record reserved were never created and have been retired outright — see
 
 ## 3. The three-plane flow
 
-Each plane does exactly one job. The Intent Eval Platform **decides** what the
-evidence means; Intent OS **records** what is approved and running; the host
-**runs** it.
+Three planes sit between a candidate change and a running relay, and each does
+exactly one job: the **Intent Eval Platform DECIDES** what the evidence means,
+**Intent OS RECORDS** what is approved and running, and the **production host
+RUNS** it.
+
+Upstream and the code fork are **not** planes — they are the SOURCE of
+candidates, sitting upstream of the pipeline. The fork's job is the contribution
+lane (`contrib/*` → PRs to `block/buzz`); it never decides, records, or runs.
+Every box in the diagram is tagged with its plane, or with SOURCE where it has
+none, so the mapping is not left to inference.
 
 ```text
- block/buzz  ◄──PR──  intent-solutions-io/buzz          (contribute: clean contrib/* branches)
+ block/buzz  ◄──PR──  intent-solutions-io/buzz          (SOURCE: clean contrib/* branches)
                           │ candidate SHA + gate evidence
                           ▼
                  Intent Eval Platform (IEP)               (DECIDE: evaluate / sign / gate)
@@ -110,9 +117,13 @@ persistence, monitoring, CORS, pairing, image scan.
   **no** prod credentials, **no** SSH, and **no** Docker socket. The prod host
   is **not** a general-purpose PR runner.
 - **The code fork stays rebase-clean:** IS additions are additive-only; internal
-  tooling never enters the fork unless it is deliberately proposed upstream.
-  A `contrib/*` branch must not add intent-only paths (`intent-os/`, `iep/`,
-  `evidence/private/`, `.env*`, `*.age`, `*.key`, `private/`, `internal/`).
+  **product and ops** tooling never enters the fork unless it is deliberately
+  proposed upstream. **Fork-governance** tooling is the explicit exception —
+  `scripts/fork-gates/`, the vendored audit harness, and `lefthook-local.yml`
+  are *required* on governance `main` and are listed in `FORK.md`'s must-survive
+  table. A `contrib/*` branch must not add intent-only paths (`intent-os/`,
+  `iep/`, `evidence/private/`, `.env*`, `*.age`, `*.key`, `private/`,
+  `internal/`) — governance files included: the two lanes never mix.
 - **The ops lane is the only ops authority.** Prod state — digests, deploy and
   restore records, runbooks — lives in `intent-os` `ops/buzz/` and nowhere else.
   No second ops repo is created for any reason.
