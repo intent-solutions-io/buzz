@@ -26,11 +26,11 @@ tests it — `check-must-survive.sh` asserts the *paths exist*, not that the two
 
 ## 2. Finding — one entry in `ALLOW` has no row in `FORK.md`
 
-Comparing the 14 `ALLOW` entries against the 11 rows of `FORK.md` § *Must-survive set*:
+Comparing the 13 `ALLOW` entries against the 10 path rows of `FORK.md` § *Must-survive set*:
 
 | `ALLOW` entry | `FORK.md` row |
 |---|---|
-| `FORK.md`, `REVIEW.md`, `TEST_AUDIT.md`, `000-docs/`, `.beads/` | present |
+| `FORK.md`, `TEST_AUDIT.md`, `000-docs/`, `.beads/` | present |
 | `scripts/fork-gates/`, `scripts/audit-harness`, `.audit-harness/` | present |
 | `.harness-hash`, `.harness-hash-extra-patterns`, `lefthook-local.yml` | present |
 | `CLAUDE.md`, `.github/workflows/fork-gates.yml` | present (declared divergences) |
@@ -61,7 +61,7 @@ its job, and precisely the review step that `007` found had been missing.
 
 ## 4. What changed
 
-- `scripts/fork-gates/check-additive-only.sh` — `.gitleaksignore` removed from `ALLOW` (14 → 13).
+- `scripts/fork-gates/check-additive-only.sh` — `.gitleaksignore` removed from `ALLOW` (13 → 12).
 - `.harness-hash` re-pinned, because `scripts/fork-gates/*.sh` is inside the hash-pinned policy
   surface (`.harness-hash-extra-patterns:7`). An unpinned edit to a gate script is the thing that
   pin exists to catch.
@@ -81,6 +81,19 @@ audit of *enforcement whose scope quietly stopped matching its subject*.
 `check-additive-only.sh upstream/main` and `check-must-survive.sh` both pass against the reduced
 array, and `scripts/audit-harness verify` passes on the re-pinned manifest. The divergence set is
 byte-for-byte what it was before this change.
+
+## 5b. A correction to this record, and it proves the point
+
+The first draft of this audit stated "14 `ALLOW` entries" and "11 rows", and listed `REVIEW.md`
+among the matched entries. **Those numbers were read off the wrong branch** — the unmerged
+`chore/retire-phantom-lab-repos`, which adds `REVIEW.md` to `ALLOW` *and* to `FORK.md` (correctly, in
+lockstep). On `main`, the base this change targets, `REVIEW.md` exists in neither list and the file is
+not in the divergence set at all. The correct counts are **13 → 12** against **10** `FORK.md` rows.
+
+Caught in review by CodeRabbit, verified against `git show origin/main:…` before accepting. Recorded
+rather than silently amended, because an audit about two lists disagreeing that itself miscounted the
+lists is the strongest available argument for the follow-up in § 6: **counts asserted by a human are
+exactly the thing a gate should be computing.**
 
 ## 6. Method note
 
