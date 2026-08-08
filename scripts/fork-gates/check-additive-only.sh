@@ -25,7 +25,6 @@ ALLOW=(
   "TEST_AUDIT.md"
   "000-docs/"
   ".beads/"
-  ".gitleaksignore"
   "lefthook-local.yml"
   "scripts/fork-gates/"
   "scripts/audit-harness"
