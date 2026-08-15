@@ -1,4 +1,4 @@
-25073bd66d1a86ac964f1f05e1d42d5d8ec99ae1d2c17a1a7e5aa2c83ff00845  000-docs/000-INDEX.md
+a9dc3420396d87af1723e0c39d3cd89614e2e0f027c5842e1781cc2917209cd7  000-docs/000-INDEX.md
 44c9f7341fbf1503988685c53377495bd16b5f25de46683f39080fbcf0b698d0  000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md
 def765bd4f637f1b2cfe5abdb508837e3247b771c8530d0ef394a587c6adc250  000-docs/002-DR-DECR-buzz-adoption-decision-record.md
 8558a3f1fe1e1fc523e3e26f4e931eb4590d41ef21d64a2bc549c258dc09462b  000-docs/003-OD-DEPL-deploy-posture-public.md
@@ -6,6 +6,7 @@ def765bd4f637f1b2cfe5abdb508837e3247b771c8530d0ef394a587c6adc250  000-docs/002-D
 1ef620807075f8ceeefa77f861fa7ddd7e23373ef5b6529a6dd25bfcead20929  000-docs/005-DR-DECR-dedicated-vps-topology.md
 01a1f93c8708df44fbb0363cb0e8b380f74c92dc8b8d74166875c0af71aa406e  000-docs/006-DR-STND-authoritative-naming-and-boundaries.md
 2428688e246f4efda38e09712bdeb440a033e418a648ed93877cbc7b5e85569f  000-docs/007-AA-AUDR-fork-contract-breach-2026-08-03.md
+fbeaab57a0f6fe0ab1cb876154b1b356e69e88f2803440eeeeb26689723eafdf  000-docs/008-AA-AUDR-fork-allowlist-lockstep-2026-08-08.md
 fde6a4a14c54b7847aaf650521bd34d8c1d679963efa79a05fc3699c48cf3aa8  FORK.md
 e27febff4e5caeaebda952139681dff83f582c793fef8b4773c810a1e571fb3f  REVIEW.md
 43f3750a570e82cfa0c0cdef6ff51d962f7dbd98f892b590c0a30955043c0ab4  TEST_AUDIT.md
