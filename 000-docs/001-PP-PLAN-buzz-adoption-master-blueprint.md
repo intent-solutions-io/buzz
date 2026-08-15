@@ -1,307 +1,169 @@
-# Buzz Adoption Master Blueprint
+# Buzz self-hosting blueprint
 
-**Artifact:** 001-PP-PLAN — standing execution authority for this fork
-**Repo:** `intent-solutions-io/buzz` (fork of [`block/buzz`](https://github.com/block/buzz))
-**Status:** ACTIVE — Phase 2 in flight (topology revised 2026-07-29, see `005`)
-**Rule of use:** execution prompts for any epic below are **extracted from this
-document — never re-derived per session**. Bead epics are hand-rolled FROM this
-blueprint (design-first, one epic at a time), each mirrored bead ↔ GitHub issue ↔
-Plane. Any session that completes an epic updates the completion ledger below
-before ending.
+**Artifact:** 001-PP-PLAN
 
-> **Public/private split (architectural):** this fork is public — GitHub forks of
-> public repos cannot be made private. It therefore holds **code and public-safe
-> planning only**. Every operator-private detail (concrete hosts, keys, member
-> data, compose env, ingress config, runbooks, backup config) lives in the
-> private operations repo under its `ops/buzz/` lane; this blueprint POINTS
-> there and never restates it.
+**Upstream:** [`block/buzz`](https://github.com/block/buzz)
 
----
+**Fork:** `intent-solutions-io/buzz`
 
-## What Buzz is (ground truth, verified 2026-07-28)
+**Status:** ACTIVE — simplified and reconciled 2026-08-15
 
-- One Rust binary (`buzz-relay`) serves WebSocket + REST + web UI on one port.
-  The relay IS the community: one relay URL = one workspace; no federation.
-- First-party self-host bundle at `deploy/compose/`: relay + Postgres 17 +
-  Redis 7 + MinIO + optional Caddy. Published images `ghcr.io/block/buzz`
-  (`:main` explicitly not for production).
-- Invite-only closed-relay mode is first-class (`BUZZ_REQUIRE_RELAY_MEMBERSHIP`
-  + `BUZZ_REQUIRE_AUTH_TOKEN` + `RELAY_OWNER_PUBKEY`, plus a stable
-  `BUZZ_RELAY_PRIVATE_KEY` — the relay's own identity, required for
-  membership enforcement to start; key material never documented, sops-held);
-  members via `buzz-admin` or invite links. Keypairs generate client-side;
-  NIP-42 auth per connection.
-- Clients: desktop mature; web client served by the relay; Android young but
-  live; iOS lane still maturing.
-- Agents: `buzz-acp` bridge runs client-side on an operator machine, connects
-  with its own Nostr key, subscribes to @mentions, spawns a harness. Claude
-  Code is a Tier-1 builtin harness.
-- Honest limitations (upstream's own): bundled MinIO is eval-only; rate
-  limiting defined but not enforced; some workflow features stubbed. This is
-  **preview-software adoption** — mitigated by closed-relay + invite-only +
-  the hardening gates below.
-- Loss-critical state: relay private key, Postgres, media bucket, git volume,
-  owner key.
+This document defines the public-safe operating model for the fork. It does not
+contain hostnames, credentials, member data, private topology, or live commands.
+Those belong only in the private operations repository.
 
-## Fork strategy
+## The decision
 
-- **This fork (`intent-solutions-io/buzz`)** is the adoption home: tracking
-  branch off upstream `main`, rebase-clean, carries patches only when needed.
-  Deploys use **upstream images** on a wrapped update lane; switch to
-  fork-built images only if/when we carry a patch upstream hasn't merged.
-- **All IS additions are ADDITIVE-ONLY**: add files upstream doesn't have
-  (`000-docs/`, `FORK.md`, `.beads/` tracked set, `TEST_AUDIT.md`); never
-  modify upstream-owned files (README, CONTRIBUTING, LICENSE, AGENTS.md,
-  CLAUDE.md, TESTING.md, `.gitignore`, …). This keeps rebases against
-  upstream conflict-free. See `FORK.md` for the must-survive set.
-- **Contribution lane rides `contrib/*` branches of this org fork** (owner
-  call 2026-07-28 — all Buzz in the org; the briefly-used personal fork is
-  retired), worked from the contribute-workspace clone: DCO sign-off,
-  comment-first per upstream CONTRIBUTING, small scoped changes. Upstream
-  candidates are tracked in the contribute system — not duplicated here.
+Intent Solutions self-hosts Buzz from a public fork of the upstream repository.
+That is a normal and supported open-source model:
 
-## Task tracking
+1. The fork preserves source access and a contribution lane.
+2. `upstream/main` remains the source of truth for Buzz code.
+3. Production normally runs Block's stable, published relay image pinned by
+   immutable digest.
+4. The fork builds a production image only while carrying an explicitly declared
+   patch that upstream has not merged.
+5. Deployment configuration, secrets, backups, and runbooks remain private.
 
-This repo runs its own beads database (prefix `buzz`, tracked
-`.beads/issues.jsonl`, Dolt-backed with auto-commit on, hooks 5/5). Epic
-boundaries are tagged in Dolt (`dolt tag buzz-<epic>-start/-complete`). Beads
-are hand-rolled from this blueprint, never bulk-scripted, and mirrored
-three-way (bead ↔ GitHub issue ↔ Plane project `BUZZ`).
+The fork is intentionally thin. Self-hosting does not require maintaining a
+second product roadmap or modifying upstream-owned files.
 
----
+## Required self-hosting baseline
 
-## Completion ledger (update on every epic close)
+### Source and release policy
 
-| Epic | Phase | State | Evidence |
-|---|---|---|---|
-| E1 — Fork + repo infrastructure | 1 | **COMPLETE** (2026-07-29) | PRs #2 #3 #5 + fork-gates PR; bead `buzz-4ei` closed; gates: additive-only + must-survive + escape-scan + hash-verify wired via `lefthook-local.yml` |
-| E2 — Relay hosting stack (**re-designated STAGING**, `005`) | 2 | staging live, in flight (epic `buzz-ocv`: DNS + secrets + closed compose stack live; own Caddy ingress live; backups real + restore drill PROVEN; open: Tauri-CORS, pairing sidecar, updater planted-fault drill, full smoke suite) | GH #8 · Plane BUZZ-2 |
-| E2d — Dedicated production host + cutover (Track D, `005`) | 2 | **prod host built + deployed + verified, pre-cutover** (epic `buzz-nry`; PRs #279 #280): `intent-ops-buzz` **production host** bootstrapped to estate conventions; prod relay deployed with fresh secrets serving `buzz-prod.intentsolutions.io`; functional membership probe GREEN, unauth matrix pass, caps verified. Apex `buzz.` cutover + owner desktop-key swap remain (owner-gated). | GH #9 · Plane BUZZ-3 |
-| E3 — Hardening + go-live gates (run against PROD) | 2 | in flight — membership probe + unauth HTTP matrix + resource caps + backup/restore PROVEN against prod; remaining BLOCKING: off-site backup leg, updater planted-fault drill (on staging), monitoring alerts exercised, full smoke suite, CORS client verify, pairing verify-or-documented, key runbooks rehearsed | — |
-| E4 — Headless administration | 2.5 | not started | — |
-| E5 — Team onboarding (all-in) | 3 | not started | — |
-| E6 — Agent bridge (isolated coding agent `goose minimax3`) | 4 | **LIVE on prod** (2026-07-30, decision-log/039, PR #301): `buzz-acp`+goose/MiniMax-M3 running as a member on the prod host, owner-gated + PR-gated, egress-isolated. Open: wire the prod PR loop (repo + scoped token + branch protection — owner inputs) | GH #? · PR #301 |
-| E7 — Governed-brain agent (`@bob`, BYOH) | 4 | staged (follow-up) | — |
-| ELab — Contributor laboratory (`intent-solutions-io/intent-ops-buzz` **repository**, Track C) | 6 | not started (repo not yet created — correct; depends on the naming record `006`) | — |
-| E8 — Upstream contribution lane (Track D) | 5 | qualified candidates filed | — |
-| E9 — Operator plugin (`intent-solutions-io/intent-ops-buzz-plugin`) | 7 | **DEFERRED** — scope gauged from the real install cycle (owner call 2026-07-29); repo not yet created | — |
-| E10 — Community channel layout & identity roster (`buzz-ehv`) | 3 | **build DONE (2026-07-31)** — clean provider-first open layout live (`0-general` pinned, `ask`, `ai-wire`, `anthropic-*` group, `<provider>-wire` + topic `*-wire`, private `sys-*`); persona agents purged; canonical names set; `ops/buzz/RUNBOOK-channels.md` (source-cited). Open: CCA-channel decision (owner-gated), member join/onboarding model | fork beads `buzz-ehv` |
-| E11 — Buzz operational expertise: reference + skill + agents (`buzz-yfe`) | 3 | **COMPLETE (2026-07-31)** — 2 source-cited references (`ops/buzz/reference/`, 100% citation-consistent with the fork); `buzz-ops` skill (PASS `/validate-skillmd`); 3 operator agents `buzz-ops`/`buzz-feed-curator`/`buzz-relay-admin` (PASS `/validate-agent`) | fork beads `buzz-yfe` |
-| E12 — AI-Wire feed engine (`buzz-w92`) | 4 | **posting primitive DONE**; ingestion pipeline next — `AI Wire` bot live, first cards posted to `ai-wire`+`0-general`. Children: pipeline (RSSHub+feed→LLM→card), easy/medium/hard feeds, Anthropic monitor-fleet wire, curation+digest, cron | fork beads `buzz-w92` |
-| E13 — Estate system notifications into `sys-*` (`buzz-0ts`) | 4 | **not started** (Track B) — `buzz-notify.sh`/`af_buzz_transport` → private `sys-*` channels, retiring Slack/notify/Moshi (keep off-estate floor + Ezekiel email) | fork beads `buzz-0ts` |
+- Keep an `upstream` remote pointing to `block/buzz`.
+- Regularly synchronize the fork with `upstream/main`.
+- Use stable relay releases, never `:main` in production.
+- Resolve the selected release to `ghcr.io/block/buzz@sha256:…` before deploy.
+- Review upstream release notes before changing the deployed digest.
+- Send generally useful code fixes upstream on DCO-signed `contrib/*` branches.
 
-Asset names are governed by `006-DR-STND-authoritative-naming-and-boundaries.md`
-(canonical). Never write the bare phrase `intent-ops-buzz` — it is either the
-**production host** or the **repository**; always disambiguate.
+### Runtime stack
 
-(The LMS↔estate integration audit — an adjacent adoption-program workstream —
-lives entirely in the private operations repo; it has no phase or epic here.
-Phase 6 in this tree is the contributor laboratory, below.)
+The supported baseline follows upstream's compose architecture:
 
----
+- `buzz-relay`
+- PostgreSQL 17
+- Redis 7
+- S3-compatible media storage (MinIO is acceptable for the current small
+  deployment; migrate to managed object storage when scale or durability calls
+  for it)
+- TLS reverse proxy
 
-## Dependency-ordered phase tree
+The relay and stores run with explicit memory, CPU, PID, restart, health, and
+volume policies. Databases and object storage are not publicly exposed.
 
-### Phase 1 — Fork + repo infrastructure (E1) — FIRST; nothing else starts before it
+### Access control
 
-1. Fork `block/buzz` → `intent-solutions-io/buzz`; clone with upstream remote. ✔
-2. Beads + Dolt full activation (prefix `buzz`, hooks 5/5, auto-commit on,
-   clean DB — no foreign imports). ✔
-3. This blueprint as `000-docs/001`; `000-INDEX.md` as nav layer; adoption
-   decision record (`002`); public deploy-posture doc (`003`).
-4. `FORK.md` — fork relationship + must-survive set (additive-mode governance;
-   zero upstream-path edits, validated per commit).
-5. Testing SOP baseline: `/audit-tests` diagnostic → `TEST_AUDIT.md` mapping
-   upstream's suite (`just test-unit` / docker integration / e2e via
-   buzz-test-client) against the 7-layer taxonomy; then `/implement-tests`
-   for gaps with Layer 1 (git hooks) required, in-repo harness only —
-   staged for review, never auto-committed.
-6. Plane `BUZZ` project + epic mirror + memory seeding (repo memory + estate
-   memory + private `ops/buzz/README.md`).
+- Require relay authentication and membership.
+- Keep a stable relay identity key.
+- Keep owner, relay, agent, database, Redis, media, and hook credentials separate.
+- Store secrets only in encrypted private operations material and host runtime
+  files with restrictive permissions.
+- Treat client secret keys as user-owned identities that cannot be reset.
 
-**Exit:** tracking exists; every subsequent step lands as a tracked bead.
+### Backups and recovery
 
-### Phase 2 — Relay hosting (E2 staging + E2d prod) + hardening gates (E3)
+A successful recovery point contains all loss-critical state:
 
-Depends on: E1. Operator detail: private `ops/buzz/`.
+- PostgreSQL custom-format dump
+- checksummed media tree
+- Git object-volume archive
+- deployed compose and environment snapshot
+- image, schema, environment, and source provenance
 
-> **Topology (revised 2026-07-29, decision `005`):** production runs on a
-> **dedicated VPS**; the stack below, built on the shared estate host, is
-> **permanent staging** (drills + release promotion run there, never on
-> prod). Prod deploys the same digest-pinned compose with **fresh secrets —
-> staging keys never promote**; DNS cuts over at go-live and staging
-> renames to `buzz-testing.intentsolutions.io`.
+The backup must fail if any required store is absent or cannot be copied. A
+freshness marker is written only after the encrypted archive succeeds. The
+non-destructive restore drill must verify every artifact, restore PostgreSQL in
+scratch, and validate the Git archive. Live restoration remains an explicit
+human action.
 
-- E2 (staging, epic `buzz-ocv`): compose stack on the shared estate host
-  (relay, Postgres 17, Redis 7, MinIO-for-now) beside existing stacks; the
-  full closed-relay configuration set from first boot (membership +
-  auth-token enforcement, owner pubkey, and the relay's stable identity
-  private key); sops-managed secrets; stable-release images pinned by
-  digest. Includes the client-path defects surfaced by the external
-  infrastructure review (2026-07-29):
-  - **Tauri desktop origins** (upstream #3490): the packaged desktop
-    client presents its own origins; they must be in the relay CORS
-    allowlist or desktop join is blocked. No permissive-CORS shortcuts;
-    verify with the packaged client, not a dev build.
-  - **Mobile pairing sidecar** (upstream #2734 / PR #2736): the compose
-    bundle lacks the pairing sidecar; add an overlay service + ingress
-    route, and claim it works only after a real desktop↔mobile pairing.
-  - **`buzz-admin` rule** (upstream #2837): admin commands run only inside
-    the relay container (env present), never from the host without an
-    explicit `DATABASE_URL` — the dev-credential fallback is a trap.
-- E2d (prod, epic `buzz-nry`): bootstrap the dedicated host to estate
-  conventions → deploy the staging-proven artifacts with fresh secrets →
-  DNS cutover → all E3 gates re-run against prod.
-- E2b: **wrapped auto-update lane** (not naked `:latest` + auto-migrate):
-  per stable release — stop/drain writes → bound snapshot (`pg_dump -Fc` +
-  media/git snapshots taken as one named restorable recovery point) →
-  promote by digest → auto-migrate → functional probe (member key
-  authenticates, publishes, reads back; un-invited key refused) → on any
-  failure auto-revert **in order**: stop the new release → restore every
-  store from the bound recovery point → repin last-known-good digest →
-  start → re-probe → alert. Update window is write-isolated, so the bound
-  snapshot loses nothing. RPO ≤ 24 h only for host-loss disasters. The
-  promotion checklist (external review, 2026-07-29) additionally requires:
-  release-notes review, a **staging boot**, a **probe-hang check**
-  (upstream #2723 / PR #2724 — the git-conformance probe can wedge
-  startup; our pinned digest boots healthy with
-  `BUZZ_GIT_CONFORMANCE_PROBE=true`, but a future image must prove it on
-  staging first), and a CORS/Tauri-origin + pairing regression check.
-  Upstream's own `backup` command is a checklist, not a backup — our
-  `pg_dump` + three-store recovery point stands; the off-site copy rides
-  the estate B2/borg chain (there is no "home server").
-- E3 (all BLOCKING before any invite goes out — the whole team lands at
-  once, so hardening is not pilot-optional):
-  - Edge compensating controls (body-size caps, timeouts, security headers,
-    OS-level connection limiting) — upstream rate limiting is
-    defined-but-unenforced.
-  - Co-tenancy caps: mem/cpu/pids limits, size-capped dedicated media volume,
-    own bridge network with no route to other stacks.
-  - **Unauthenticated probe matrix, off-network**: media PUT, git
-    upload/receive-pack, hook endpoints — every one must 401/403.
-  - **Backup proof by restore drill**: `pg_dump` artifact (never a live
-    datadir copy), three stores snapshotted as one named recovery point,
-    restore boots and a sampled event→media/git reference walk finds zero
-    dangling refs.
-  - Update-wrapper drill: planted bad release → probe fails → auto-revert →
-    alert delivered; one kill-mid-migration chaos run on a scratch relay.
-  - Key runbooks rehearsed once each: member lost-key (remove → re-invite →
-    new identity; verify live-session termination), relay-key incident,
-    agent-key rotation. Verify desktop stores the secret key encrypted at
-    rest.
+At least one encrypted copy must live outside the production host. Until that
+copy and a restore from it are verified, disaster recovery is **PARTIAL** rather
+than proven.
 
-### Phase 2.5 — Headless administration (E4)
+### Upgrades
 
-Depends on: E2. Everything except chatting is CLI/API-administrable
-(`buzz-admin` roster + keys + migrate; invite-token API; `buzz-cli` channel
-ops). The owner's interface-required moments are exactly two: generating his
-own keypair in desktop onboarding, and using the chat.
+Relay upgrades are manual, staging-first, and digest-pinned. There is no scheduled
+application updater and no raw Watchtower deployment.
 
-### Phase 3 — Team onboarding, all-in (E5)
+The operator:
 
-Depends on: E3 gates ALL green. Owner decision: the whole team onboards from
-the start; the legacy chat channel stays alive as fallback until Buzz holds
-**two stable weeks**; Matrix stays shelved as Plan B.
+1. selects a stable upstream relay release;
+2. takes a fresh complete recovery point;
+3. rehearses the digest on staging or an ephemeral equivalent;
+4. runs readiness, authentication, publish/readback, CORS, and applicable pairing
+   checks;
+5. promotes the same digest to production;
+6. records the old digest, new digest, probe result, and rollback command.
 
-- Owner first: desktop onboarding → own keypair → pubkey becomes
-  `RELAY_OWNER_PUBKEY` → relay restarted into closed mode.
-- Channel structure mirrors the existing team structure: onboarding/prep,
-  certified members, leads, town square, agents lab. Channel membership is
-  the access boundary (relay-enforced per op).
-- Leads land days 1–2 as channel stewards; full team same week. Per-member
-  invite links via the estate sender. Onboarding email carries two
-  non-negotiables: (a) *your key is your identity; back it up; we cannot
-  reset it*; (b) *no one — not the owner, not an agent, not "support" — will
-  EVER ask for your key; any such request is an attack: screenshot and
-  report.*
-- Known onboarding risk (tracked as issue #4 on this fork): a member with
-  an existing Buzz identity from another community hits "identity already
-  connected" with no sign-out path.
-- Stability gate: two stable weeks → legacy channel formally retired; can't
-  hold → fall back and re-evaluate.
+Image rollback may be automated inside that operator-invoked action. Destructive
+store restoration is never automatic.
 
-### Phase 4 — Agents in channels (E6, E7)
+## Optional components
 
-Depends on: E5 (agents lab channel exists). Agents are team-level chat
-members with their own keys; brains run client-side through `buzz-acp` on an
-operator machine. One agent serves everyone.
+These are not prerequisites for a sound self-hosted relay:
 
-- E6 `@claude` (Tier-1 builtin): **isolation is a hard gate** — channel text
-  is attacker-controlled input into a tool-bearing agent, so bridge+harness
-  run in a dedicated isolated container: no home-dir mount, no secrets
-  beyond the agent's own key, egress allowlisted to the relay only, harness
-  deny-by-default. Supervised with restart caps + a liveness sweep (upstream
-  #1743: offline agents fail silently — the sweep is the detector). Scope:
-  agents-lab channel only.
-- E7 `@bob` (Tier-3 BYOH): thin ACP shim over the existing governed-brain
-  query API; registered as a custom harness. Waits until E6 proves the
-  bridge.
+| Component | Policy |
+|---|---|
+| Pairing sidecar | Enable only when desktop/mobile NIP-AB pairing is used. It reuses the same stable relay-image digest. |
+| Permanent staging | Optional. An ephemeral rehearsal stack is sufficient if it exercises the production compose shape. |
+| Coding or curator agents | Disabled until their own keys, owner authorization, health checks, and narrow permissions are proven. The relay never depends on them. |
+| Automated application updates | Not used. Manual upgrades are safer and simpler for preview software. |
+| Operator plugin | Deferred until repeated operations demonstrate a real need. |
+| AI/news feed automation | Product work, not relay self-hosting infrastructure. Track separately if pursued. |
 
-### Phase 5 — Upstream contribution lane (E8, parallel)
+## Current-state ledger
 
-Governed by the contribute system. Operating the relay in production feeds
-operator repros → scoped fixes. Qualified first touches: upstream #3419
-(AppImage path bug), #1743 (offline-agent @mention failure — we will hit
-this in Phase 4), #3399 (ACP runtime registry docs). Comment-first, DCO,
-human approval on every claim/PR.
+`VERIFIED` means a live or destructive-equivalent check has a receipt. `PARTIAL`
+means useful work exists but an important guarantee remains open. `DEFERRED`
+means the component is not required for the relay.
 
-### Phase 6 — Contributor laboratory (ELab, Track C)
+| Area | State | Evidence boundary |
+|---|---|---|
+| Fork relationship | **VERIFIED** | Upstream remote and additive fork contract exist; synchronization is part of every maintenance pass. |
+| Core relay and stores | **VERIFIED** | Stable relay release, PostgreSQL, Redis, media store, TLS, readiness, and resource limits are live. Exact runtime data remains private. |
+| Closed-relay controls | **VERIFIED** | Authentication, membership, stable relay identity, and explicit CORS are enabled. |
+| Local recovery | **VERIFIED** | Complete versioned recovery point and real scratch PostgreSQL/media/Git verification pass. |
+| Off-host recovery | **PARTIAL — BLOCKING DR GAP** | Key custody exists; the production data replica and restore receipt are still required. |
+| Relay upgrades | **VERIFIED MANUAL POSTURE** | Scheduled updater retired; stable digest changes are operator-initiated and staging-first. |
+| Device pairing | **PARTIAL / OPTIONAL** | Sidecar and public WebSocket route work; one real device pairing is still required for an end-to-end claim. |
+| Persistent coding agent | **DEFERRED / DISABLED** | Not required for self-hosting; re-enable only after owner authorization and a successful tagged turn. |
+| Team onboarding | **SEPARATE WORKSTREAM** | Membership and channels exist; rollout policy is not a relay infrastructure gate. |
 
-Depends on: the naming record `006` (done). A **separate** repository —
-`intent-solutions-io/intent-ops-buzz` **repository** (NOT a fork, NOT the prod
-host of the same name) — that resolves any exact Buzz candidate, mirrors
-upstream CI, adds self-hosting/fault/deployment tests, compares against an exact
-upstream baseline, produces reusable PR evidence, and hands normalized
-`gate-result/v1` evidence to the Intent Eval Platform for the contribution and
-deployment gates (`006` §4–§5). The lab **executes**; IEP **decides**; the ops
-lane **records**; the host **runs**. Its full architecture (contrib.lock schema,
-pinned runner, `buzz-contrib` CLI, test profiles, CI workflows, IEP adapter,
-J-Rig dataset, evidence bundle, baseline run, contamination check) graduates
-from the parked draft to filed artifacts **in Track C** — not before, per the
-owner amendment's "no durable architecture docs until the naming record lands."
+## Fork contract
 
-### Phase 7 — Operator plugin (E9)
+Fork-governance additions are additive-only and enumerated in `FORK.md`. With the
+exception of explicitly documented divergences, files owned by upstream are not
+modified on the adoption branch. Any carried code patch must identify its upstream
+issue or pull request and be removed when upstream merges the fix.
 
-Depends on: E2 basics proven (the references are distilled from real
-runbooks, sanitized to generic). Four skills (`buzz-self-host`,
-`buzz-admin`, `buzz-agent-wiring`, `buzz-contribute`) + two read-only
-subagents (`buzz-relay-doctor`, `buzz-upgrade-auditor`); marketplace
-8-field frontmatter; all validation gates blocking; no estate hostnames,
-keys, or topology anywhere in the plugin.
+Public fork checks must use exact matches for files and directory-prefix matches
+only for declared directories. A filename that merely starts with an allowed
+filename is not allowed.
 
-**Scope DEFERRED — gauge from the real install (owner call 2026-07-29).** We do
-NOT pre-spec the plugin's shape. Base Claude Code can already read the upstream
-docs and run compose, so a generic "install helper" is low-value and redundant.
-The plugin earns its place ONLY where it encodes **specialized operator
-knowledge the upstream docs don't carry and a general agent gets wrong** — the
-landmines surfaced by actually operating the relay (e.g. `/health` is a 404 so
-the real smoke is `_readiness` + NIP-11; the closed-relay identity-key ordering;
-the Tauri CORS trap #3490; the pairing sidecar #2734; the probe-hang #2723; the
-`buzz-admin` dev-credential fallback #2837; "upstream's backup is a checklist,
-not a backup"; the wrapped-updater vs naked Watchtower; the unauth HTTP probe
-matrix). **Decision rule:** run the E2/E3 install + setup + operate cycle first,
-capture what a general agent would have gotten wrong, THEN scope the plugin
-around exactly that gap (likely the two diagnostic subagents + a hardening/backup
-skill, not a tutorial).
+## Tracking and authority
 
-- **Branding:** Intent, model-agnostic (matches Buzz's ACP neutrality); never a
-  vendor/model name, per the estate's own-vocabulary rule.
-- **Home:** its **own standalone repo** `intent-solutions-io/intent-ops-buzz-plugin`
-  (per the naming record `006`; not `jeremylongshore`), listed in the CCPI
-  marketplace by reference, never vendored into the monorepo — its release
-  cadence tracks Buzz, not the marketplace. The repo is not yet created (correct
-  — the scope is deferred).
-- **Prior-art check (done 2026-07-29):** Buzz ships native agent-harness support
-  *for running an agent inside Buzz* (the `buzz-acp` ACP bridge), but no plugin
-  exists for *building/operating/self-hosting* a Buzz relay — genuine gap, not a
-  duplicate.
+- This blueprint governs public self-hosting architecture and scope.
+- Private operations documentation governs live deployment state.
+- Beads is the durable work tracker for this fork. GitHub issues may mirror work
+  that benefits from review; a third mandatory tracker is not required.
+- Historical decision and audit records remain immutable evidence. When reality
+  changes, update this current-state document instead of treating historical prose
+  as an instruction.
 
----
+## Definition of respectably self-hosted
 
-## Non-goals / standing constraints
+The deployment is technically sound when:
 
-- No public announcement of any kind — internal rollout.
-- Matrix/Element remains Plan B, unbuilt.
-- Nothing estate-private in this repo, ever (enforced by the split above).
-- This adoption program is owner-ordered operations; it does not consume a
-  Mission Control implementation slot in the estate's Phase-1 discipline.
+- the relay and dependencies are healthy and privately networked;
+- access is closed and identities are recoverable according to policy;
+- every production image is an reviewed immutable digest;
+- a complete backup fails closed and is monitored for age;
+- a restore is periodically proven without touching live stores;
+- an independently stored encrypted copy can be restored;
+- optional automation can be removed without affecting chat; and
+- documentation describes the system that actually exists.
+
+Everything beyond that baseline must justify its operational cost.

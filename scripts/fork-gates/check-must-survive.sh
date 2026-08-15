@@ -17,6 +17,7 @@ MUST_SURVIVE=(
   "lefthook-local.yml"
   "scripts/fork-gates/check-additive-only.sh"
   "scripts/fork-gates/check-must-survive.sh"
+  "scripts/fork-gates/test-additive-only.sh"
   "scripts/audit-harness"
   ".audit-harness/VERSION"
   "CLAUDE.md"

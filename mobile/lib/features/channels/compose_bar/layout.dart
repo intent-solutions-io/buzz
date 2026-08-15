@@ -1,9 +1,8 @@
 part of '../compose_bar.dart';
 
 class _ComposeBarLayout extends StatelessWidget {
-  final List<BlobDescriptor> attachments;
-  final int uploadingCount;
-  final ValueChanged<String> onRemoveAttachment;
+  final List<_PendingAttachment> attachments;
+  final ValueChanged<int> onRemoveAttachment;
   final String? uploadError;
   final bool isExpanded;
   final TextEditingController controller;
@@ -20,17 +19,18 @@ class _ComposeBarLayout extends StatelessWidget {
   final bool formattingOpen;
   final VoidCallback onCloseFormatting;
   final Duration motionDuration;
+  final Duration resizeDuration;
   final void Function(String prefix, [String? suffix]) onFormat;
   final VoidCallback onMention;
   final VoidCallback onChannel;
   final VoidCallback onEmoji;
   final VoidCallback onOpenFormatting;
+  final bool canSend;
   final bool hasPendingUploads;
   final bool isSending;
 
   const _ComposeBarLayout({
     required this.attachments,
-    required this.uploadingCount,
     required this.onRemoveAttachment,
     required this.uploadError,
     required this.isExpanded,
@@ -48,11 +48,13 @@ class _ComposeBarLayout extends StatelessWidget {
     required this.formattingOpen,
     required this.onCloseFormatting,
     required this.motionDuration,
+    required this.resizeDuration,
     required this.onFormat,
     required this.onMention,
     required this.onChannel,
     required this.onEmoji,
     required this.onOpenFormatting,
+    required this.canSend,
     required this.hasPendingUploads,
     required this.isSending,
   });
@@ -63,10 +65,17 @@ class _ComposeBarLayout extends StatelessWidget {
   }
 
   Widget _buildBar(BuildContext context) {
+    final trimmedDraft = controller.text.trim();
+    final collapsedText = trimmedDraft.isEmpty
+        ? resolvedHint
+        : trimmedDraft.replaceAll(RegExp(r'\s+'), ' ');
+    final composerRadius =
+        Radii.dialog + Grid.quarter * (1 - expansionProgress);
     return Container(
+      key: const ValueKey('composer-surface'),
       decoration: BoxDecoration(
         color: context.colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(Radii.dialog),
+        borderRadius: BorderRadius.circular(composerRadius),
         border: Border.all(
           color: Colors.black.withValues(alpha: 0.04),
           width: 1,
@@ -76,10 +85,9 @@ class _ComposeBarLayout extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (attachments.isNotEmpty || hasPendingUploads) ...[
+          if (attachments.isNotEmpty) ...[
             _AttachmentStrip(
               attachments: attachments,
-              uploadingCount: uploadingCount,
               onRemove: onRemoveAttachment,
             ),
             const SizedBox(height: Grid.xxs),
@@ -99,34 +107,18 @@ class _ComposeBarLayout extends StatelessWidget {
           // Keep the default state out of the focus system entirely so
           // restored native focus cannot expand a newly opened channel.
           if (isExpanded)
-            TextField(
-              controller: controller,
-              focusNode: focusNode,
-              textInputAction: TextInputAction.send,
-              contextMenuBuilder: contextMenuBuilder,
-              contentInsertionConfiguration: ContentInsertionConfiguration(
-                allowedMimeTypes: _pastedImageMimeTypes,
-                onContentInserted: onContentInserted,
-              ),
-              onSubmitted: (_) => onSend(),
-              minLines: 1,
-              maxLines: 5,
-              style: context.textTheme.bodyLarge,
-              decoration: InputDecoration(
-                hintText: resolvedHint,
-                hintStyle: context.textTheme.bodyLarge?.copyWith(
-                  color: context.colors.onSurfaceVariant,
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: Grid.half,
-                  vertical: Grid.half,
-                ),
-                isDense: true,
-              ),
-            )
+            resizeDuration == Duration.zero
+                ? KeyedSubtree(
+                    key: const ValueKey('composer-text-height-motion'),
+                    child: _buildTextField(context),
+                  )
+                : AnimatedSize(
+                    key: const ValueKey('composer-text-height-motion'),
+                    alignment: Alignment.topCenter,
+                    duration: resizeDuration,
+                    curve: Curves.easeOutCubic,
+                    child: _buildTextField(context),
+                  )
           else
             Row(
               children: [
@@ -142,7 +134,7 @@ class _ComposeBarLayout extends StatelessWidget {
                     label: resolvedHint,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: onExpand,
+                      onTap: () => _runComposerAction(onExpand),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           vertical: Grid.half,
@@ -150,15 +142,25 @@ class _ComposeBarLayout extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            resolvedHint,
+                            collapsedText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: context.textTheme.bodyLarge?.copyWith(
-                              color: context.colors.onSurfaceVariant,
+                              color: trimmedDraft.isEmpty
+                                  ? context.colors.onSurfaceVariant
+                                  : context.colors.onSurface,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(width: Grid.xxs),
+                _SendButton(
+                  isDisabled: !canSend || hasPendingUploads,
+                  isSending: isSending,
+                  onTap: onSend,
                 ),
               ],
             ),
@@ -167,7 +169,7 @@ class _ComposeBarLayout extends StatelessWidget {
               alignment: Alignment.topCenter,
               heightFactor: expansionValue,
               child: IgnorePointer(
-                ignoring: expansionValue < 0.98,
+                ignoring: !isExpanded,
                 child: Opacity(
                   opacity: expansionProgress,
                   child: Transform.translate(
@@ -225,7 +227,8 @@ class _ComposeBarLayout extends StatelessWidget {
                                           ),
                                           const Spacer(),
                                           _SendButton(
-                                            isDisabled: hasPendingUploads,
+                                            isDisabled:
+                                                !canSend || hasPendingUploads,
                                             isSending: isSending,
                                             onTap: onSend,
                                           ),
@@ -243,6 +246,43 @@ class _ComposeBarLayout extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(BuildContext context) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
+      contextMenuBuilder: contextMenuBuilder,
+      // Flutter's Cupertino magnifier rebuilds its overlay on every
+      // selection-handle update. Keep the iOS handles and native edit menu,
+      // but let the handles track the finger directly here.
+      magnifierConfiguration: defaultTargetPlatform == TargetPlatform.iOS
+          ? TextMagnifierConfiguration.disabled
+          : null,
+      contentInsertionConfiguration: ContentInsertionConfiguration(
+        allowedMimeTypes: _pastedImageMimeTypes,
+        onContentInserted: onContentInserted,
+      ),
+      minLines: 1,
+      maxLines: 5,
+      style: context.textTheme.bodyLarge,
+      decoration: InputDecoration(
+        hintText: resolvedHint,
+        hintStyle: context.textTheme.bodyLarge?.copyWith(
+          color: context.colors.onSurfaceVariant,
+        ),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Grid.half,
+          vertical: Grid.half,
+        ),
+        isDense: true,
       ),
     );
   }

@@ -17,7 +17,7 @@ if ! git rev-parse --verify -q "$REF" >/dev/null; then
   exit 2
 fi
 
-# The fork allowlist — every path prefix this fork is allowed to differ on.
+# The fork allowlist — exact file paths and directory prefixes ending in `/`.
 # Keep in lockstep with the FORK.md must-survive table (that table is the
 # human contract; this array is its machine form).
 ALLOW=(
@@ -25,7 +25,6 @@ ALLOW=(
   "TEST_AUDIT.md"
   "000-docs/"
   ".beads/"
-  ".gitleaksignore"
   "lefthook-local.yml"
   "scripts/fork-gates/"
   "scripts/audit-harness"
@@ -48,7 +47,11 @@ while IFS= read -r path; do
   [ -z "$path" ] && continue
   ok=0
   for a in "${ALLOW[@]}" "${CARRIED_PATCHES[@]}"; do
-    case "$path" in "$a"*) ok=1; break;; esac
+    if [[ "$a" == */ ]]; then
+      [[ "$path" == "$a"* ]] && { ok=1; break; }
+    elif [ "$path" = "$a" ]; then
+      ok=1; break
+    fi
   done
   if [ "$ok" = 0 ]; then
     echo "fork-gates: NON-ADDITIVE CHANGE vs $REF: $path" >&2

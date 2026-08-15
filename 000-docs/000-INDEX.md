@@ -6,7 +6,7 @@ This directory is an Intent Solutions **addition** to the fork — upstream
 
 | # | Artifact | What it is |
 |---|---|---|
-| 001 | [PP-PLAN — Buzz adoption master blueprint](001-PP-PLAN-buzz-adoption-master-blueprint.md) | The standing execution authority: dependency-ordered phase→epic tree, completion ledger, go-live gates. Execution prompts are extracted from it, never re-derived. |
+| 001 | [PP-PLAN — Buzz self-hosting blueprint](001-PP-PLAN-buzz-adoption-master-blueprint.md) | Current public-safe architecture: thin upstream-tracking fork, minimum production baseline, manual upgrades, recovery requirements, optional components, and truthful state ledger. |
 | 002 | [DR-DECR — Adoption decision record](002-DR-DECR-buzz-adoption-decision-record.md) | Why Buzz, alternatives, accepted risks, consequences. |
 | 003 | [OD-DEPL — Deploy posture (public-safe)](003-OD-DEPL-deploy-posture-public.md) | Hosting shape, wrapped update lane, edge controls, go-live gates. Operator detail lives in the private ops lane. |
 | 004 | [DR-DECR — Fork-gate wiring](004-DR-DECR-fork-gate-wiring.md) | TEST_AUDIT G6 decision: tracked `lefthook-local.yml` + fork gates + hash pinning; F1 resolution; escape-scan baseline. |

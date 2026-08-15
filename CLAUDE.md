@@ -28,9 +28,10 @@
 - **A deliberate carry requires a `CARRIED_PATCHES` entry** in
   `scripts/fork-gates/check-additive-only.sh` — it is **empty by design**, and
   the entry is removed the moment upstream merges the patch.
-- **Run both fork gates before any PR:**
+- **Run the fork gates and matcher regression before any PR:**
   `scripts/fork-gates/check-additive-only.sh` and
-  `scripts/fork-gates/check-must-survive.sh`. The same checks run in CI
+  `scripts/fork-gates/check-must-survive.sh`, plus
+  `scripts/fork-gates/test-additive-only.sh`. The same checks run in CI
   (`.github/workflows/fork-gates.yml`) as a **required check** on `main` — a PR
   that modifies upstream-owned paths cannot merge.
 
