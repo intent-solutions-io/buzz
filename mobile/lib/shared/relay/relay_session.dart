@@ -14,6 +14,7 @@ import '../auth/auth.dart';
 import 'nostr_models.dart';
 import 'relay_client.dart';
 import 'relay_closed_policy.dart';
+import 'relay_http_query_client.dart';
 import 'relay_provider.dart';
 import 'relay_rate_limit_gate.dart';
 import 'relay_socket.dart';
@@ -88,18 +89,25 @@ typedef RelaySocketFactory =
 class RelaySessionNotifier extends Notifier<SessionState> {
   RelaySessionNotifier({
     http.Client? httpClient,
+    http.Client Function()? httpClientFactory,
     RelaySocketFactory socketFactory = RelaySocket.new,
+    DateTime Function()? now,
     RelayRateLimitGate? rateLimitGate,
     RelayTimerFactory retryTimerFactory = Timer.new,
     Future<void> Function(Duration) replayDelay = Future.delayed,
-  }) : _httpClient = httpClient,
+  }) : _httpQueryClient = RelayHttpQueryClient(
+         client: httpClient,
+         clientFactory: httpClientFactory,
+       ),
        _socketFactory = socketFactory,
+       _now = now ?? DateTime.now,
        _rateLimitGate = rateLimitGate ?? RelayRateLimitGate(),
        _retryTimerFactory = retryTimerFactory,
        _replayDelay = replayDelay;
 
-  final http.Client? _httpClient;
+  final RelayHttpQueryClient _httpQueryClient;
   final RelaySocketFactory _socketFactory;
+  final DateTime Function() _now;
   final RelayRateLimitGate _rateLimitGate;
   final RelayTimerFactory _retryTimerFactory;
   final Future<void> Function(Duration) _replayDelay;
@@ -111,6 +119,7 @@ class RelaySessionNotifier extends Notifier<SessionState> {
   static const _replayBatchSize = 8;
   static const _replayInterBatchDelay = Duration(milliseconds: 50);
   static const _maxRecentDeliveryKeys = 5000;
+  static const _backgroundGraceDuration = Duration(seconds: 5);
 
   RelaySocket? _socket;
   final Map<String, _HistorySubscription> _historySubscriptions = {};
@@ -122,6 +131,7 @@ class RelaySessionNotifier extends Notifier<SessionState> {
   Timer? _reconnectTimer;
   Timer? _flushTimer;
   Timer? _backgroundGraceTimer;
+  DateTime? _backgroundedAt;
   int _reconnectDelayMs = _baseReconnectDelayMs;
   int _subIdCounter = 0;
   bool _disposed = false;
@@ -163,26 +173,22 @@ class RelaySessionNotifier extends Notifier<SessionState> {
     final bodyBytes = utf8.encode(
       jsonEncode(filters.map((filter) => filter.toJson()).toList()),
     );
-    final client = _httpClient ?? http.Client();
-    final shouldCloseClient = _httpClient == null;
-    final response = await client
-        .post(
-          Uri.parse(url),
-          headers: {
-            'Authorization': buildNip98AuthHeader(
-              method: 'POST',
-              url: url,
-              bodyBytes: bodyBytes,
-              nsec: config.nsec,
-            ),
-            'Content-Type': 'application/json',
-          },
-          body: bodyBytes,
-        )
-        .timeout(timeout)
-        .whenComplete(() {
-          if (shouldCloseClient) client.close();
-        });
+    // Reuse the session transport on success. A timeout rotates immediately
+    // for new queries, then closes the retired client after its peers finish.
+    final response = await _httpQueryClient.post(
+      Uri.parse(url),
+      headers: {
+        'Authorization': buildNip98AuthHeader(
+          method: 'POST',
+          url: url,
+          bodyBytes: bodyBytes,
+          nsec: config.nsec,
+        ),
+        'Content-Type': 'application/json',
+      },
+      body: bodyBytes,
+      timeout: timeout,
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _activateRateLimitGateFromHttpError(response.body);
       throw RelayException(response.statusCode, response.body);
@@ -394,8 +400,9 @@ class RelaySessionNotifier extends Notifier<SessionState> {
 
   /// Called by the app lifecycle provider when the app goes to background.
   void onAppPaused() {
+    _backgroundedAt = _now();
     _backgroundGraceTimer?.cancel();
-    _backgroundGraceTimer = Timer(const Duration(seconds: 5), _pauseNow);
+    _backgroundGraceTimer = Timer(_backgroundGraceDuration, _pauseNow);
   }
 
   void _pauseNow() {
@@ -411,12 +418,18 @@ class RelaySessionNotifier extends Notifier<SessionState> {
   /// Called by the app lifecycle provider when the app returns to foreground.
   void onAppResumed() {
     _paused = false;
+    final backgroundedAt = _backgroundedAt;
+    _backgroundedAt = null;
     _backgroundGraceTimer?.cancel();
     _backgroundGraceTimer = null;
 
-    // If still connected, nothing to do — the socket survived the background
-    // grace window.
-    if (state.status == SessionStatus.connected) return;
+    final backgroundedLongEnoughToRequireReconnect =
+        backgroundedAt != null &&
+        _now().difference(backgroundedAt) >= _backgroundGraceDuration;
+    if (!backgroundedLongEnoughToRequireReconnect &&
+        state.status == SessionStatus.connected) {
+      return;
+    }
 
     // Cancel any in-flight reconnect backoff timer so we reconnect immediately
     // instead of waiting for the (possibly large) exponential delay.
@@ -908,6 +921,7 @@ class RelaySessionNotifier extends Notifier<SessionState> {
     _reconnectTimer?.cancel();
     _flushTimer?.cancel();
     _backgroundGraceTimer?.cancel();
+    _backgroundedAt = null;
     _cancelAllClosedRetries();
     _rateLimitGate.reset();
     _visibleChannelsByOwner.clear();
@@ -923,7 +937,7 @@ class RelaySessionNotifier extends Notifier<SessionState> {
     _recentDeliveryKeys.clear();
     _socket?.dispose();
     _socket = null;
-    _httpClient?.close();
+    _httpQueryClient.close();
   }
 }
 

@@ -105,6 +105,91 @@ void main() {
     );
   });
 
+  test('queryRelay rotates the client after a timeout', () async {
+    final clients = <_ControlledHttpClient>[];
+    final session = RelaySessionNotifier(
+      httpClientFactory: () {
+        final client = _ControlledHttpClient();
+        clients.add(client);
+        return client;
+      },
+    );
+    final container = ProviderContainer(
+      overrides: [
+        relaySessionProvider.overrideWith(() => session),
+        relayConfigProvider.overrideWith(
+          () => _FakeRelayConfigNotifier(
+            baseUrl: 'https://relay.example',
+            nsec: nostr.Keys.generate().nsec,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(relaySessionProvider);
+
+    await expectLater(
+      session.queryRelay(const [], timeout: Duration.zero),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(clients.single.closed, isTrue);
+
+    final nextQuery = session.queryRelay(const []);
+    expect(clients, hasLength(2));
+    clients.last.complete(http.Response('[]', 200));
+
+    expect(await nextQuery, isEmpty);
+    expect(clients.last.closed, isFalse);
+  });
+
+  test(
+    'queryRelay defers closing a timed-out client until peer queries finish',
+    () async {
+      final clients = <_QueuedControlledHttpClient>[];
+      final session = RelaySessionNotifier(
+        httpClientFactory: () {
+          final client = _QueuedControlledHttpClient();
+          clients.add(client);
+          return client;
+        },
+      );
+      final container = ProviderContainer(
+        overrides: [
+          relaySessionProvider.overrideWith(() => session),
+          relayConfigProvider.overrideWith(
+            () => _FakeRelayConfigNotifier(
+              baseUrl: 'https://relay.example',
+              nsec: nostr.Keys.generate().nsec,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(relaySessionProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      final timedOutQuery = session.queryRelay(
+        const [],
+        timeout: const Duration(milliseconds: 10),
+      );
+      final peerQuery = session.queryRelay(const []);
+      expect(clients.single.requestCount, 2);
+
+      await expectLater(timedOutQuery, throwsA(isA<TimeoutException>()));
+      expect(clients.single.closed, isFalse);
+
+      final nextQuery = session.queryRelay(const []);
+      expect(clients, hasLength(2));
+      clients.first.complete(1, http.Response('[]', 200));
+      expect(await peerQuery, isEmpty);
+      expect(clients.first.closed, isTrue);
+
+      clients.last.complete(0, http.Response('[]', 200));
+      expect(await nextQuery, isEmpty);
+      expect(clients.last.closed, isFalse);
+    },
+  );
+
   test('queryRelay arms the rate-limit gate from a 429 retry hint', () async {
     final gateTimers = <_ManualTimer>[];
     final gate = RelayRateLimitGate(
@@ -431,6 +516,120 @@ void main() {
 
     expect(session.state.status, SessionStatus.disconnected);
   });
+
+  test(
+    'resume reconnects a stale connected session after a long pause',
+    () async {
+      final sockets = <_ControlledRelaySocket>[];
+      final keychain = nostr.Keys.generate();
+      var now = DateTime(2026, 8, 2, 12);
+      final session = RelaySessionNotifier(
+        now: () => now,
+        socketFactory:
+            ({
+              required wsUrl,
+              required nsec,
+              required onMessage,
+              required onConnected,
+              required onDisconnected,
+            }) {
+              final socket = _ControlledRelaySocket(
+                wsUrl: wsUrl,
+                nsec: nsec,
+                onMessage: onMessage,
+                onConnected: onConnected,
+                onDisconnected: onDisconnected,
+              );
+              sockets.add(socket);
+              return socket;
+            },
+      );
+      final container = ProviderContainer(
+        overrides: [
+          relaySessionProvider.overrideWith(() => session),
+          relayConfigProvider.overrideWith(
+            () => _FakeRelayConfigNotifier(
+              baseUrl: 'https://relay.example',
+              nsec: keychain.nsec,
+            ),
+          ),
+          authProvider.overrideWith(() => _AuthenticatedAuthNotifier()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(authProvider.future);
+      final subscription = container.listen(relaySessionProvider, (_, _) {});
+      addTearDown(subscription.close);
+      await Future<void>.delayed(Duration.zero);
+      sockets.single.connectSuccessfully();
+
+      session.onAppPaused();
+      now = now.add(const Duration(minutes: 5));
+      session.onAppResumed();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sockets, hasLength(2));
+      expect(sockets.first.disposeCalls, 1);
+      expect(session.state.status, SessionStatus.reconnecting);
+    },
+  );
+
+  test(
+    'resume keeps a connected session within the background grace period',
+    () async {
+      final sockets = <_ControlledRelaySocket>[];
+      final keychain = nostr.Keys.generate();
+      var now = DateTime(2026, 8, 2, 12);
+      final session = RelaySessionNotifier(
+        now: () => now,
+        socketFactory:
+            ({
+              required wsUrl,
+              required nsec,
+              required onMessage,
+              required onConnected,
+              required onDisconnected,
+            }) {
+              final socket = _ControlledRelaySocket(
+                wsUrl: wsUrl,
+                nsec: nsec,
+                onMessage: onMessage,
+                onConnected: onConnected,
+                onDisconnected: onDisconnected,
+              );
+              sockets.add(socket);
+              return socket;
+            },
+      );
+      final container = ProviderContainer(
+        overrides: [
+          relaySessionProvider.overrideWith(() => session),
+          relayConfigProvider.overrideWith(
+            () => _FakeRelayConfigNotifier(
+              baseUrl: 'https://relay.example',
+              nsec: keychain.nsec,
+            ),
+          ),
+          authProvider.overrideWith(() => _AuthenticatedAuthNotifier()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(authProvider.future);
+      final subscription = container.listen(relaySessionProvider, (_, _) {});
+      addTearDown(subscription.close);
+      await Future<void>.delayed(Duration.zero);
+      sockets.single.connectSuccessfully();
+
+      session.onAppPaused();
+      now = now.add(const Duration(seconds: 4));
+      session.onAppResumed();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sockets, hasLength(1));
+      expect(sockets.single.disposeCalls, 0);
+      expect(session.state.status, SessionStatus.connected);
+    },
+  );
 
   test('delivers the same live event to each matching subscription', () async {
     final session = RelaySessionNotifier();
@@ -1094,6 +1293,59 @@ void main() {
   });
 }
 
+class _ControlledHttpClient extends http.BaseClient {
+  final _response = Completer<http.StreamedResponse>();
+  bool closed = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      _response.future;
+
+  void complete(http.Response response) {
+    _response.complete(
+      http.StreamedResponse(
+        Stream.value(response.bodyBytes),
+        response.statusCode,
+        headers: response.headers,
+        reasonPhrase: response.reasonPhrase,
+        request: response.request,
+      ),
+    );
+  }
+
+  @override
+  void close() => closed = true;
+}
+
+class _QueuedControlledHttpClient extends http.BaseClient {
+  final List<Completer<http.StreamedResponse>> _responses = [];
+  bool closed = false;
+
+  int get requestCount => _responses.length;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    final response = Completer<http.StreamedResponse>();
+    _responses.add(response);
+    return response.future;
+  }
+
+  void complete(int requestIndex, http.Response response) {
+    _responses[requestIndex].complete(
+      http.StreamedResponse(
+        Stream.value(response.bodyBytes),
+        response.statusCode,
+        headers: response.headers,
+        reasonPhrase: response.reasonPhrase,
+        request: response.request,
+      ),
+    );
+  }
+
+  @override
+  void close() => closed = true;
+}
+
 class _QueryHarness {
   final ProviderContainer container;
   final RelaySessionNotifier session;
@@ -1143,6 +1395,7 @@ class _AuthenticatedAuthNotifier extends AuthNotifier {
 class _ControlledRelaySocket extends RelaySocket {
   final void Function() _connected;
   final void Function(Object? error) _disconnected;
+  int disposeCalls = 0;
 
   _ControlledRelaySocket({
     required super.wsUrl,
@@ -1157,7 +1410,9 @@ class _ControlledRelaySocket extends RelaySocket {
   Future<void> connect() async {}
 
   @override
-  void dispose() {}
+  void dispose() {
+    disposeCalls++;
+  }
 
   void connectSuccessfully() => _connected();
 
