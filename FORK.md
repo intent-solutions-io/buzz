@@ -6,6 +6,11 @@ as the home of our Buzz adoption (self-hosted closed relay for the internal
 team). Upstream's own README, CONTRIBUTING, LICENSE, and governance documents
 apply unchanged to all upstream code.
 
+> **Repository boundary:** this public fork is not the deployment repository.
+> Private compose files, systemd units, encrypted environment material, backups,
+> and operator runbooks live in `intent-os/ops/buzz/`; that directory is neither
+> copied nor vendored here.
+
 ## Fork contract
 
 - **Tracking:** `main` tracks and is regularly synchronized with upstream `main`. We
@@ -34,6 +39,7 @@ apply unchanged to all upstream code.
 | Path | Purpose |
 |---|---|
 | `FORK.md` | this contract |
+| `REVIEW.md` | fork-specific guidance for automated and human PR review |
 | `000-docs/` | Intent Solutions planning artifacts (master blueprint, decision record, deploy posture) |
 | `.beads/` (tracked subset) | task tracking for the adoption program (prefix `buzz`) |
 | `TEST_AUDIT.md` | testing-SOP baseline audit |
@@ -53,8 +59,8 @@ any deliberately carried patch named in the gate script).
 
 Anything estate-specific: compose environment files, relay/owner/agent keys,
 member data, ingress configuration, runbooks, backup configuration. Those
-live in Intent Solutions' private operations repo. This fork is public by
-GitHub's fork rules and holds code and public-safe planning only.
+live in Intent Solutions' private `intent-os/ops/buzz/` lane. This fork is
+public by GitHub's fork rules and holds code and public-safe planning only.
 
 ## Security
 

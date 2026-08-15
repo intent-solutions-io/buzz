@@ -124,6 +124,11 @@ The unit is dormant (timer not enabled). **Verify the tag resolves — or
 re-pin to a digest — before the timer is ever enabled.** Tracked in the
 adoption program's beads.
 
+> **Resolved 2026-08-15:** the service and timer were retired rather than
+> enabled. Relay upgrades are now operator-initiated, staging-first, and
+> digest-pinned; current posture lives in `001`, while this paragraph remains
+> the historical finding that led to the cleanup.
+
 ## 6. Remediation plan (filed with this audit; execution tracked in PRs)
 
 This record is filed **before** remediation completes; each step's completion

@@ -10,7 +10,8 @@
 
 This document defines the public-safe operating model for the fork. It does not
 contain hostnames, credentials, member data, private topology, or live commands.
-Those belong only in the private operations repository.
+Those belong only in the private `intent-os/ops/buzz/` deployment lane, which is
+a separate repository and is not part of this source tree.
 
 ## The decision
 
