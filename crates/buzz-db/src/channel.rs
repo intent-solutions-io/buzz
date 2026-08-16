@@ -82,6 +82,84 @@ pub struct MemberRecord {
     pub removed_at: Option<DateTime<Utc>>,
 }
 
+/// Add a newly invited relay member to the deployment-configured default
+/// channel inside the caller's existing transaction.
+///
+/// The configured name must resolve to exactly one live, unarchived open stream
+/// channel in the same community. Returning an error deliberately aborts the
+/// surrounding invite claim, preventing a successful community admission from
+/// silently omitting its default-channel assignment. The returned UUID is
+/// present only when the membership became active (new row or reactivation),
+/// which lets the relay avoid duplicate discovery notifications.
+pub(crate) async fn add_invitee_to_default_channel_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    community_id: CommunityId,
+    channel_name: &str,
+    pubkey: &[u8],
+) -> Result<Option<Uuid>> {
+    if pubkey.len() != 32 {
+        return Err(DbError::InvalidData(format!(
+            "pubkey must be 32 bytes, got {}",
+            pubkey.len()
+        )));
+    }
+
+    let canonical_name = buzz_core::channel::canonical_channel_name(channel_name);
+    let channel_ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM channels \
+         WHERE community_id = $1 AND name = $2 \
+           AND channel_type = 'stream' AND visibility = 'open' \
+           AND archived_at IS NULL AND deleted_at IS NULL \
+         ORDER BY created_at ASC LIMIT 2",
+    )
+    .bind(community_id.as_uuid())
+    .bind(canonical_name)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let channel_id = match channel_ids.as_slice() {
+        [channel_id] => *channel_id,
+        [] => {
+            return Err(DbError::InvalidData(format!(
+                "configured default channel {canonical_name:?} was not found as a live open stream"
+            )))
+        }
+        _ => {
+            return Err(DbError::InvalidData(format!(
+                "configured default channel {canonical_name:?} is ambiguous"
+            )))
+        }
+    };
+
+    let existing_removed_at: Option<Option<DateTime<Utc>>> = sqlx::query_scalar(
+        "SELECT removed_at FROM channel_members \
+         WHERE community_id = $1 AND channel_id = $2 AND pubkey = $3 \
+         FOR UPDATE",
+    )
+    .bind(community_id.as_uuid())
+    .bind(channel_id)
+    .bind(pubkey)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let became_active = existing_removed_at.is_none_or(|removed_at| removed_at.is_some());
+
+    sqlx::query(
+        "INSERT INTO channel_members (community_id, channel_id, pubkey, role, invited_by) \
+         VALUES ($1, $2, $3, 'member', NULL) \
+         ON CONFLICT (community_id, channel_id, pubkey) DO UPDATE SET \
+           removed_at = NULL, removed_by = NULL, hidden_at = NULL, \
+           role = CASE WHEN channel_members.removed_at IS NULL \
+                       THEN channel_members.role ELSE 'member'::member_role END",
+    )
+    .bind(community_id.as_uuid())
+    .bind(channel_id)
+    .bind(pubkey)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(became_active.then_some(channel_id))
+}
+
 /// Creates a new channel, bootstraps the creator as owner, and returns the record.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_channel(

@@ -153,6 +153,24 @@ pub async fn claim_relay_membership(
     role: &str,
     policy_version: Option<&str>,
 ) -> Result<bool> {
+    claim_relay_membership_with_default_channel(pool, community, pubkey, role, policy_version, None)
+        .await
+        .map(|(inserted, _)| inserted)
+}
+
+/// Claims relay membership and, when configured, atomically assigns a newly
+/// inserted member to the named default channel.
+///
+/// The optional channel UUID is returned only when channel membership became
+/// active and relay-side discovery notifications should be published.
+pub async fn claim_relay_membership_with_default_channel(
+    pool: &PgPool,
+    community: CommunityId,
+    pubkey: &str,
+    role: &str,
+    policy_version: Option<&str>,
+    default_channel_name: Option<&str>,
+) -> Result<(bool, Option<uuid::Uuid>)> {
     let mut tx = pool.begin().await?;
     let inserted = sqlx::query(
         "INSERT INTO relay_members (community_id, pubkey, role, added_by) \
@@ -179,8 +197,30 @@ pub async fn claim_relay_membership(
         .await?;
     }
 
+    let default_channel_id = if inserted {
+        match default_channel_name {
+            Some(channel_name) => {
+                let pubkey_bytes = hex::decode(pubkey).map_err(|error| {
+                    crate::error::DbError::InvalidData(format!(
+                        "invite pubkey must be lowercase hex: {error}"
+                    ))
+                })?;
+                crate::channel::add_invitee_to_default_channel_tx(
+                    &mut tx,
+                    community,
+                    channel_name,
+                    &pubkey_bytes,
+                )
+                .await?
+            }
+            None => None,
+        }
+    } else {
+        None
+    };
+
     tx.commit().await?;
-    Ok(inserted)
+    Ok((inserted, default_channel_id))
 }
 
 /// Returns whether a member has persisted acceptance evidence for a policy version.

@@ -4072,6 +4072,27 @@ impl Db {
             .await
     }
 
+    /// Claims relay membership and atomically assigns a newly inserted member
+    /// to the configured default channel when one is supplied.
+    pub async fn claim_relay_membership_with_default_channel(
+        &self,
+        community: CommunityId,
+        pubkey: &str,
+        role: &str,
+        policy_version: Option<&str>,
+        default_channel_name: Option<&str>,
+    ) -> Result<(bool, Option<Uuid>)> {
+        relay_members::claim_relay_membership_with_default_channel(
+            &self.pool,
+            community,
+            pubkey,
+            role,
+            policy_version,
+            default_channel_name,
+        )
+        .await
+    }
+
     /// Returns whether a member has persisted acceptance evidence for a policy version.
     pub async fn has_join_policy_acceptance(
         &self,
@@ -4178,8 +4199,9 @@ impl Db {
     }
 
     /// Atomically claims a v2 relay invite. The full redemption (membership
-    /// insert, policy evidence, use_count increment) runs in one PostgreSQL
-    /// transaction with `FOR UPDATE` on the invite row.
+    /// insert, optional default-channel assignment, policy evidence, use_count
+    /// increment) runs in one PostgreSQL transaction with `FOR UPDATE` on the
+    /// invite row.
     ///
     /// `token_hash` is the SHA-256 of the presented v2 code (32 bytes).
     pub async fn claim_relay_invite(
@@ -4195,6 +4217,27 @@ impl Db {
             token_hash,
             claimer_pubkey,
             policy_version,
+        )
+        .await
+    }
+
+    /// Atomically claims a v2 invite and assigns a newly inserted member to a
+    /// configured default channel when one is supplied.
+    pub async fn claim_relay_invite_with_default_channel(
+        &self,
+        community: CommunityId,
+        token_hash: &[u8; 32],
+        claimer_pubkey: &str,
+        policy_version: Option<&str>,
+        default_channel_name: Option<&str>,
+    ) -> Result<(relay_invite::ClaimOutcome, Option<Uuid>)> {
+        relay_invite::claim_relay_invite_with_default_channel(
+            &self.pool,
+            community,
+            token_hash,
+            claimer_pubkey,
+            policy_version,
+            default_channel_name,
         )
         .await
     }
