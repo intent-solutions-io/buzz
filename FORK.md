@@ -49,6 +49,16 @@ After any rebase: run `scripts/fork-gates/check-must-survive.sh` then
 exists and that `git diff upstream/main` shows **only** paths from it (plus
 any deliberately carried patch named in the gate script).
 
+## Deliberately carried patches
+
+The fork temporarily carries the invite/default-channel fix from PR #26 while
+it is prepared for upstream contribution. The patch makes community admission
+and membership in the deployment-configured default channel atomic, adds the
+corresponding relay side effects, improves rejected-invite guidance, and adds
+regression coverage. Every upstream-owned path in this patch is listed exactly
+in `scripts/fork-gates/check-additive-only.sh`; remove those entries when the
+fix is available from upstream.
+
 ## What is deliberately NOT here
 
 Anything estate-specific: compose environment files, relay/owner/agent keys,
