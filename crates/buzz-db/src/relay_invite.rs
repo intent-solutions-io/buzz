@@ -12,8 +12,9 @@
 //! ## Atomic redemption
 //!
 //! `claim_relay_invite` executes the full redemption in one PostgreSQL
-//! transaction: `SELECT FOR UPDATE` on the invite row, membership insert,
-//! join-policy evidence insert, and `use_count` increment all commit together.
+//! transaction: `SELECT FOR UPDATE` on the invite row, relay/default-channel
+//! membership inserts, join-policy evidence insert, and `use_count` increment
+//! all commit together.
 //! `FOR UPDATE` serializes concurrent claims for one invite across relay
 //! processes — exactly one claimant can win the final slot.
 
@@ -192,8 +193,9 @@ pub async fn reap_expired_relay_invites(pool: &PgPool, cutoff: DateTime<Utc>) ->
 /// 7. If `max_uses` is set and `use_count >= max_uses` → `Exhausted`.
 /// 8. Insert relay member with role `member`, `added_by = 'invite'`.
 /// 9. Insert join-policy acceptance evidence (if configured).
-/// 10. Increment `use_count`.
-/// 11. Commit.
+/// 10. Insert configured default-channel membership (if configured).
+/// 11. Increment `use_count`.
+/// 12. Commit.
 ///
 /// `FOR UPDATE` serializes concurrent claims so exactly one claimant wins the
 /// final slot. Membership insertion, policy evidence, and consumption share
@@ -205,6 +207,31 @@ pub async fn claim_relay_invite(
     claimer_pubkey: &str,
     policy_version: Option<&str>,
 ) -> Result<ClaimOutcome> {
+    claim_relay_invite_with_default_channel(
+        pool,
+        community,
+        token_hash,
+        claimer_pubkey,
+        policy_version,
+        None,
+    )
+    .await
+    .map(|(outcome, _)| outcome)
+}
+
+/// Atomically claim a v2 relay invite and optionally assign a newly admitted
+/// member to a named default channel in the same transaction.
+///
+/// The optional channel UUID is returned only when channel membership became
+/// active and relay-side discovery notifications should be published.
+pub async fn claim_relay_invite_with_default_channel(
+    pool: &PgPool,
+    community: CommunityId,
+    token_hash: &[u8; 32],
+    claimer_pubkey: &str,
+    policy_version: Option<&str>,
+    default_channel_name: Option<&str>,
+) -> Result<(ClaimOutcome, Option<uuid::Uuid>)> {
     let mut tx = pool.begin().await?;
 
     // 2. SELECT FOR UPDATE — lock the invite row for the duration of this txn.
@@ -223,7 +250,7 @@ pub async fn claim_relay_invite(
     let Some(invite) = row else {
         tx.rollback().await?;
         log_claim_outcome(community, None, "invalid", None, None);
-        return Ok(ClaimOutcome::Invalid);
+        return Ok((ClaimOutcome::Invalid, None));
     };
 
     let invite_id: uuid::Uuid = invite.try_get("id")?;
@@ -243,7 +270,7 @@ pub async fn claim_relay_invite(
             max_uses,
             Some(use_count),
         );
-        return Ok(ClaimOutcome::Expired);
+        return Ok((ClaimOutcome::Expired, None));
     }
 
     let uses_remaining = || max_uses.map(|mu| mu - use_count);
@@ -277,10 +304,13 @@ pub async fn claim_relay_invite(
             max_uses,
             Some(use_count),
         );
-        return Ok(ClaimOutcome::AlreadyMember {
-            use_count,
-            uses_remaining: uses_remaining(),
-        });
+        return Ok((
+            ClaimOutcome::AlreadyMember {
+                use_count,
+                uses_remaining: uses_remaining(),
+            },
+            None,
+        ));
     }
 
     // 7. Capacity check.
@@ -294,7 +324,7 @@ pub async fn claim_relay_invite(
                 max_uses,
                 Some(use_count),
             );
-            return Ok(ClaimOutcome::Exhausted);
+            return Ok((ClaimOutcome::Exhausted, None));
         }
     }
 
@@ -336,13 +366,34 @@ pub async fn claim_relay_invite(
             max_uses,
             Some(use_count),
         );
-        return Ok(ClaimOutcome::AlreadyMember {
-            use_count,
-            uses_remaining: uses_remaining(),
-        });
+        return Ok((
+            ClaimOutcome::AlreadyMember {
+                use_count,
+                uses_remaining: uses_remaining(),
+            },
+            None,
+        ));
     }
 
-    // 10. Increment use_count (for every new member, even unlimited).
+    let default_channel_id = match default_channel_name {
+        Some(channel_name) => {
+            let pubkey_bytes = hex::decode(claimer_pubkey).map_err(|error| {
+                crate::error::DbError::InvalidData(format!(
+                    "invite pubkey must be lowercase hex: {error}"
+                ))
+            })?;
+            crate::channel::add_invitee_to_default_channel_tx(
+                &mut tx,
+                community,
+                channel_name,
+                &pubkey_bytes,
+            )
+            .await?
+        }
+        None => None,
+    };
+
+    // 11. Increment use_count (for every new member, even unlimited).
     let new_use_count = use_count + 1;
     sqlx::query("UPDATE relay_invites SET use_count = $1 WHERE community_id = $2 AND id = $3")
         .bind(new_use_count)
@@ -351,7 +402,7 @@ pub async fn claim_relay_invite(
         .execute(&mut *tx)
         .await?;
 
-    // 11. Commit.
+    // 12. Commit.
     tx.commit().await?;
 
     let new_uses_remaining = max_uses.map(|mu| mu - new_use_count);
@@ -364,10 +415,13 @@ pub async fn claim_relay_invite(
         Some(new_use_count),
     );
 
-    Ok(ClaimOutcome::Joined {
-        use_count: new_use_count,
-        uses_remaining: new_uses_remaining,
-    })
+    Ok((
+        ClaimOutcome::Joined {
+            use_count: new_use_count,
+            uses_remaining: new_uses_remaining,
+        },
+        default_channel_id,
+    ))
 }
 
 #[cfg(test)]
@@ -406,6 +460,11 @@ mod tests {
             .execute(&mut *tx)
             .await
             .expect("delete test invites");
+        sqlx::query("DELETE FROM channels WHERE community_id = $1")
+            .bind(community.as_uuid())
+            .execute(&mut *tx)
+            .await
+            .expect("delete test channels");
         sqlx::query("DELETE FROM relay_members WHERE community_id = $1")
             .bind(community.as_uuid())
             .execute(&mut *tx)
@@ -434,6 +493,28 @@ mod tests {
         .expect("read invite use_count")
     }
 
+    async fn create_open_stream(
+        pool: &PgPool,
+        community: CommunityId,
+        name: &str,
+        created_by: &str,
+    ) -> Uuid {
+        let channel_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO channels \
+             (id, community_id, name, channel_type, visibility, created_by) \
+             VALUES ($1, $2, $3, 'stream', 'open', $4)",
+        )
+        .bind(channel_id)
+        .bind(community.as_uuid())
+        .bind(name)
+        .bind(hex::decode(created_by).expect("creator pubkey hex"))
+        .execute(pool)
+        .await
+        .expect("create default channel");
+        channel_id
+    }
+
     #[test]
     fn mint_validation_rejects_invalid_bounds_before_database_access() {
         for (ttl, max_uses) in [
@@ -446,6 +527,84 @@ mod tests {
             let error = validate_mint_inputs(ttl, max_uses).expect_err("invalid mint contract");
             assert!(matches!(error, crate::DbError::InvalidData(_)), "{error:?}");
         }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires Postgres"]
+    async fn configured_default_channel_membership_commits_with_v2_claim() {
+        let pool = setup_pool().await;
+        let community = make_test_community(&pool).await;
+        let owner = test_pubkey();
+        let joiner = test_pubkey();
+        let channel_id = create_open_stream(&pool, community, "0-general", &owner).await;
+        let invite = mint_relay_invite(&pool, community, &owner, 3600, Some(1))
+            .await
+            .expect("mint invite");
+
+        let (outcome, assigned_channel) = claim_relay_invite_with_default_channel(
+            &pool,
+            community,
+            &hash_v2_code(&invite.code),
+            &joiner,
+            None,
+            Some("#0-general"),
+        )
+        .await
+        .expect("claim with default channel");
+
+        assert_eq!(
+            outcome,
+            ClaimOutcome::Joined {
+                use_count: 1,
+                uses_remaining: Some(0),
+            }
+        );
+        assert_eq!(assigned_channel, Some(channel_id));
+        let active: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM channel_members \
+             WHERE community_id = $1 AND channel_id = $2 \
+               AND pubkey = $3 AND role = 'member' AND removed_at IS NULL)",
+        )
+        .bind(community.as_uuid())
+        .bind(channel_id)
+        .bind(hex::decode(&joiner).expect("joiner pubkey hex"))
+        .fetch_one(&pool)
+        .await
+        .expect("read default membership");
+        assert!(active);
+
+        delete_test_community(&pool, community).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires Postgres"]
+    async fn missing_configured_default_channel_rolls_back_v2_claim() {
+        let pool = setup_pool().await;
+        let community = make_test_community(&pool).await;
+        let owner = test_pubkey();
+        let joiner = test_pubkey();
+        let invite = mint_relay_invite(&pool, community, &owner, 3600, Some(1))
+            .await
+            .expect("mint invite");
+
+        let error = claim_relay_invite_with_default_channel(
+            &pool,
+            community,
+            &hash_v2_code(&invite.code),
+            &joiner,
+            None,
+            Some("0-general"),
+        )
+        .await
+        .expect_err("missing default channel must abort claim");
+
+        assert!(matches!(error, crate::DbError::InvalidData(_)));
+        assert!(!is_relay_member(&pool, community, &joiner)
+            .await
+            .expect("relay membership after rollback"));
+        assert_eq!(use_count(&pool, community, invite.invite_id).await, 0);
+
+        delete_test_community(&pool, community).await;
     }
 
     #[tokio::test]

@@ -2,11 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  inviteClaimErrorMessage,
   inviteErrorMessage,
   isInviteExhaustedError,
   isInviteExpiredError,
   relayHttpFromWs,
 } from "./inviteHelpers.ts";
+
+test("invite claim sentinels are translated into recovery guidance", () => {
+  assert.equal(
+    inviteClaimErrorMessage(new Error("invite_invalid")),
+    "This invite is invalid. Check the link or ask for a new invite.",
+  );
+  assert.equal(
+    inviteClaimErrorMessage(new Error("invite_expired")),
+    "This invite code has expired — ask for a new one.",
+  );
+  assert.equal(
+    inviteClaimErrorMessage(new Error("invite_exhausted")),
+    "This invite has reached its use limit. Ask for a new invite.",
+  );
+  assert.equal(
+    inviteClaimErrorMessage(new Error("join_policy_required")),
+    "This invite approval has expired. Re-open the invite link to try again.",
+  );
+  assert.equal(
+    inviteClaimErrorMessage(new Error("network unavailable")),
+    "network unavailable",
+  );
+});
 
 test("relayHttpFromWs maps secure and local relay schemes", () => {
   assert.equal(

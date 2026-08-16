@@ -267,6 +267,11 @@ pub struct Config {
     /// documents or age attestation are configured.
     pub join_policy: Option<JoinPolicyConfig>,
 
+    /// Optional open stream channel that every newly invited relay member joins
+    /// in the same transaction as community admission. Unset preserves the OSS
+    /// default of not assigning invitees to a deployment-specific channel.
+    pub default_channel_name: Option<String>,
+
     /// Deployment-admin API and SPA configuration. Absent means the surface is disabled.
     pub admin: Option<AdminConfig>,
 
@@ -851,6 +856,18 @@ impl Config {
         let privacy_markdown = read_policy_markdown("BUZZ_PRIVACY_POLICY_MARKDOWN")?;
         let age_attestation_required = parse_optional_bool("BUZZ_AGE_ATTESTATION_REQUIRED")?;
         let audit_enabled = parse_bool("BUZZ_AUDIT_ENABLED", true)?;
+        let default_channel_name = std::env::var("BUZZ_DEFAULT_CHANNEL_NAME")
+            .ok()
+            .map(|value| buzz_core::channel::canonical_channel_name(&value).to_string())
+            .filter(|value| !value.is_empty());
+        if default_channel_name
+            .as_ref()
+            .is_some_and(|value| value.len() > 255)
+        {
+            return Err(ConfigError::InvalidValue(
+                "BUZZ_DEFAULT_CHANNEL_NAME must contain at most 255 bytes".to_string(),
+            ));
+        }
         let join_policy = if terms_markdown.is_none()
             && privacy_markdown.is_none()
             && !age_attestation_required
@@ -981,6 +998,7 @@ impl Config {
             push_gateway_delivery_url,
             push_gateway_timeout,
             join_policy,
+            default_channel_name,
             admin,
             web_dir,
             serve_git_web_gui,
@@ -1046,6 +1064,10 @@ mod tests {
         assert!(
             config.join_policy.is_none(),
             "join_policy should default to None so policy prompts and acceptance receipts are opt-in"
+        );
+        assert!(
+            config.default_channel_name.is_none(),
+            "default channel assignment must be deployment opt-in"
         );
         assert!(
             config.huddle_audio_available,

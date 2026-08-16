@@ -24,11 +24,15 @@ use axum::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::handlers::side_effects::{publish_nip43_member_added, publish_nip43_membership_list};
+use crate::handlers::side_effects::{
+    emit_group_discovery_events, emit_membership_notification, emit_system_message,
+    publish_nip43_member_added, publish_nip43_membership_list,
+};
 use buzz_core::invite::{
     hash_v2_code, validate_v2_code, DEFAULT_INVITE_TTL_SECS, MAX_INVITE_TTL_SECS, MAX_INVITE_USES,
     MIN_INVITE_TTL_SECS, V2_PREFIX,
 };
+use buzz_core::kind::KIND_MEMBER_ADDED_NOTIFICATION;
 
 use crate::invite_token;
 use crate::state::AppState;
@@ -384,9 +388,9 @@ pub async fn claim_invite(
         }
 
         let token_hash = hash_v2_code(&request.code);
-        let outcome = state
+        let (outcome, default_channel_id) = state
             .db
-            .claim_relay_invite(
+            .claim_relay_invite_with_default_channel(
                 tenant.community(),
                 &token_hash,
                 &claimer_hex,
@@ -395,6 +399,7 @@ pub async fn claim_invite(
                     .join_policy
                     .as_ref()
                     .map(|policy| policy.version.as_str()),
+                state.config.default_channel_name.as_deref(),
             )
             .await
             .map_err(|e| internal_error(&format!("v2 invite claim: {e}")))?;
@@ -414,6 +419,10 @@ pub async fn claim_invite(
                 }
                 if let Err(e) = publish_nip43_membership_list(&tenant, &state).await {
                     tracing::warn!("failed to publish NIP-43 membership list after v2 claim: {e}");
+                }
+                if let Some(channel_id) = default_channel_id {
+                    publish_default_channel_join(&tenant, &state, channel_id, &pubkey.to_bytes())
+                        .await;
                 }
                 Ok(Json(serde_json::json!({
                     "status": "joined",
@@ -463,9 +472,9 @@ pub async fn claim_invite(
             .map_err(|_| api_error(StatusCode::FORBIDDEN, "join_policy_required"))?;
     }
 
-    let was_inserted = state
+    let (was_inserted, default_channel_id) = state
         .db
-        .claim_relay_membership(
+        .claim_relay_membership_with_default_channel(
             tenant.community(),
             &claimer_hex,
             &payload.r,
@@ -474,6 +483,7 @@ pub async fn claim_invite(
                 .join_policy
                 .as_ref()
                 .map(|policy| policy.version.as_str()),
+            state.config.default_channel_name.as_deref(),
         )
         .await
         .map_err(|e| internal_error(&format!("invite claim insert: {e}")))?;
@@ -490,6 +500,9 @@ pub async fn claim_invite(
         if let Err(e) = publish_nip43_membership_list(&tenant, &state).await {
             tracing::warn!("failed to publish NIP-43 membership list after claim: {e}");
         }
+        if let Some(channel_id) = default_channel_id {
+            publish_default_channel_join(&tenant, &state, channel_id, &pubkey.to_bytes()).await;
+        }
     }
 
     Ok(Json(serde_json::json!({
@@ -498,6 +511,59 @@ pub async fn claim_invite(
         "host": tenant.host(),
         "role": payload.r,
     })))
+}
+
+/// Publish the channel-scoped side effects for an atomic default-channel
+/// membership created by an invite claim. Persistence already committed with
+/// the relay membership; side-effect failures are logged for reconciliation
+/// and never turn a successful durable claim into a misleading HTTP failure.
+async fn publish_default_channel_join(
+    tenant: &buzz_core::tenant::TenantContext,
+    state: &Arc<AppState>,
+    channel_id: uuid::Uuid,
+    target_pubkey: &[u8],
+) {
+    state.invalidate_membership(tenant, channel_id, target_pubkey);
+    let actor_pubkey = state.relay_keypair.public_key().to_bytes();
+    let actor_hex = hex::encode(actor_pubkey);
+    let target_hex = hex::encode(target_pubkey);
+
+    if let Err(error) = emit_system_message(
+        tenant,
+        state,
+        channel_id,
+        serde_json::json!({
+            "type": "member_joined",
+            "actor": actor_hex,
+            "target": target_hex,
+        }),
+    )
+    .await
+    {
+        tracing::warn!(channel = %channel_id, %error, "default-channel join system message failed");
+    }
+    if let Err(error) = emit_group_discovery_events(tenant, state, channel_id).await {
+        tracing::warn!(channel = %channel_id, %error, "default-channel discovery emission failed");
+    }
+    if let Err(error) = emit_membership_notification(
+        tenant,
+        state,
+        channel_id,
+        target_pubkey,
+        &actor_pubkey,
+        KIND_MEMBER_ADDED_NOTIFICATION,
+    )
+    .await
+    {
+        tracing::warn!(channel = %channel_id, %error, "default-channel membership notification failed");
+    }
+
+    tracing::info!(
+        community = %tenant.community(),
+        channel = %channel_id,
+        member = %target_hex,
+        "invitee added to configured default channel"
+    );
 }
 
 /// Fixed-window rate limit on claim attempts, keyed by community and claimer

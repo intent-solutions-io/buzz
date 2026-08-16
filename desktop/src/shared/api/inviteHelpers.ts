@@ -87,6 +87,24 @@ export function inviteErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : `${error}`;
 }
 
+/** Convert relay invite sentinels into actionable desktop recovery guidance. */
+export function inviteClaimErrorMessage(error: unknown): string {
+  const message = inviteErrorMessage(error);
+  if (message.includes(INVITE_EXHAUSTED_ERROR)) {
+    return "This invite has reached its use limit. Ask for a new invite.";
+  }
+  if (message.includes(INVITE_EXPIRED_ERROR)) {
+    return "This invite code has expired — ask for a new one.";
+  }
+  if (message.includes("invite_invalid")) {
+    return "This invite is invalid. Check the link or ask for a new invite.";
+  }
+  if (message.includes("join_policy_required")) {
+    return "This invite approval has expired. Re-open the invite link to try again.";
+  }
+  return message;
+}
+
 export function isInviteExpiredError(error: unknown): boolean {
   return inviteErrorMessage(error) === INVITE_EXPIRED_ERROR;
 }

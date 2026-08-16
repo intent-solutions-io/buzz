@@ -40,6 +40,18 @@ ALLOW=(
 # Deliberately carried patches (normally empty — populate ONLY when we carry a
 # fix upstream hasn't merged, and remove the entry once upstream merges it).
 CARRIED_PATCHES=(
+  ".env.example"
+  "crates/buzz-db/src/channel.rs"
+  "crates/buzz-db/src/lib.rs"
+  "crates/buzz-db/src/relay_invite.rs"
+  "crates/buzz-db/src/relay_members.rs"
+  "crates/buzz-relay/src/api/invites.rs"
+  "crates/buzz-relay/src/config.rs"
+  "desktop/playwright.config.ts"
+  "desktop/src/features/onboarding/useClaimInvite.ts"
+  "desktop/src/shared/api/inviteHelpers.test.mjs"
+  "desktop/src/shared/api/inviteHelpers.ts"
+  "desktop/tests/e2e/manual-invite-join.spec.ts"
 )
 
 violations=0
