@@ -59,6 +59,12 @@ regression coverage. Every upstream-owned path in this patch is listed exactly
 in `scripts/fork-gates/check-additive-only.sh`; remove those entries when the
 fix is available from upstream.
 
+The fork also carries byte-for-byte backports of upstream migrations 27 and 28.
+They are already recorded in the production database by the previously deployed
+upstream image, so keeping their original SQLx checksums is required for relay
+startup until the next full upstream synchronization makes them part of the
+fork's merge base.
+
 ## What is deliberately NOT here
 
 Anything estate-specific: compose environment files, relay/owner/agent keys,
