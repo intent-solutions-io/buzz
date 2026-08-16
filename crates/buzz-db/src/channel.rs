@@ -131,6 +131,12 @@ pub(crate) async fn add_invitee_to_default_channel_tx(
         }
     };
 
+    // Serialize activation with every other channel-membership writer. This
+    // also locks the absent-row case that `SELECT ... FOR UPDATE` cannot lock,
+    // so concurrent invite claims return the channel ID exactly once and the
+    // relay emits only one join notification.
+    acquire_channel_membership_lock(tx, community_id, channel_id).await?;
+
     let existing_removed_at: Option<Option<DateTime<Utc>>> = sqlx::query_scalar(
         "SELECT removed_at FROM channel_members \
          WHERE community_id = $1 AND channel_id = $2 AND pubkey = $3 \
@@ -1678,6 +1684,80 @@ mod tests {
         .expect("insert owner membership");
 
         get_channel(pool, CommunityId::from_uuid(community_id), id).await
+    }
+
+    #[tokio::test]
+    #[ignore = "requires Postgres"]
+    async fn concurrent_default_channel_activation_returns_one_notification_target() {
+        let pool = setup_pool().await;
+        let community_id = make_test_community(&pool).await;
+        let community = CommunityId::from_uuid(community_id);
+        let owner = random_pubkey();
+        let member = random_pubkey();
+        let channel = create_test_channel(
+            &pool,
+            community_id,
+            "0-general",
+            ChannelType::Stream,
+            ChannelVisibility::Open,
+            None,
+            &owner,
+            None,
+        )
+        .await
+        .expect("create default channel");
+
+        // Hold the shared membership key so both activation attempts reach
+        // the same serialization point before either can insert.
+        let mut holder = pool.begin().await.expect("begin lock holder");
+        acquire_channel_membership_lock(&mut holder, community, channel.id)
+            .await
+            .expect("holder acquires membership key");
+
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(3));
+        let spawn_activation = |pool: PgPool, barrier: std::sync::Arc<tokio::sync::Barrier>| {
+            let member = member.clone();
+            tokio::spawn(async move {
+                let mut tx = pool.begin().await.expect("begin activation");
+                barrier.wait().await;
+                let activated =
+                    add_invitee_to_default_channel_tx(&mut tx, community, "0-general", &member)
+                        .await
+                        .expect("activate default membership");
+                tx.commit().await.expect("commit activation");
+                activated
+            })
+        };
+        let mut first = spawn_activation(pool.clone(), barrier.clone());
+        let mut second = spawn_activation(pool.clone(), barrier.clone());
+        barrier.wait().await;
+
+        for activation in [&mut first, &mut second] {
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(500), activation)
+                    .await
+                    .is_err(),
+                "activation bypassed the shared channel membership lock"
+            );
+        }
+        holder.rollback().await.expect("release membership key");
+
+        let first = tokio::time::timeout(std::time::Duration::from_secs(10), first)
+            .await
+            .expect("first activation unblocked")
+            .expect("first activation task");
+        let second = tokio::time::timeout(std::time::Duration::from_secs(10), second)
+            .await
+            .expect("second activation unblocked")
+            .expect("second activation task");
+        assert_eq!(
+            [first, second]
+                .into_iter()
+                .filter(|activated| *activated == Some(channel.id))
+                .count(),
+            1,
+            "only the transaction that activates membership may request a notification"
+        );
     }
 
     async fn insert_channel_with_id(
