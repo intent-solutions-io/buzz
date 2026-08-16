@@ -52,6 +52,8 @@ CARRIED_PATCHES=(
   "desktop/src/shared/api/inviteHelpers.test.mjs"
   "desktop/src/shared/api/inviteHelpers.ts"
   "desktop/tests/e2e/manual-invite-join.spec.ts"
+  "migrations/0027_channels_id_lookup_index.sql"
+  "migrations/0028_long_reaction_payloads.sql"
 )
 
 violations=0
