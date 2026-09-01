@@ -1,7 +1,11 @@
 import * as React from "react";
 
 import { useCommunityOnboarding } from "@/features/onboarding/communityOnboarding";
-import { inviteClaimErrorMessage } from "@/shared/api/inviteHelpers";
+import {
+  inviteErrorMessage,
+  isInviteExhaustedError,
+  isInviteExpiredError,
+} from "@/shared/api/inviteHelpers";
 import { claimInvite } from "@/shared/api/invites";
 
 /**
@@ -34,7 +38,11 @@ export function useClaimInvite() {
       .catch((error: unknown) =>
         update(
           {
-            error: inviteClaimErrorMessage(error),
+            error: isInviteExpiredError(error)
+              ? "This invite code has expired — ask for a new one."
+              : isInviteExhaustedError(error)
+                ? "This invite has reached its use limit. Ask for a new invite."
+                : inviteErrorMessage(error),
           },
           transaction.id,
         ),
