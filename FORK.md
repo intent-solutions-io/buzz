@@ -51,19 +51,14 @@ any deliberately carried patch named in the gate script).
 
 ## Deliberately carried patches
 
-The fork temporarily carries the invite/default-channel fix from PR #26 while
-it is prepared for upstream contribution. The patch makes community admission
-and membership in the deployment-configured default channel atomic, adds the
-corresponding relay side effects, improves rejected-invite guidance, and adds
-regression coverage. Every upstream-owned path in this patch is listed exactly
-in `scripts/fork-gates/check-additive-only.sh`; remove those entries when the
-fix is available from upstream.
-
-The fork also carries byte-for-byte backports of upstream migrations 27 and 28.
-They are already recorded in the production database by the previously deployed
-upstream image, so keeping their original SQLx checksums is required for relay
-startup until the next full upstream synchronization makes them part of the
-fork's merge base.
+**None — empty by design.** The fork temporarily carried the
+invite/default-channel fix (PRs #26/#27, 2026-08-16) plus byte-for-byte
+backports of upstream migrations 27 and 28. That carry is **retired**: the
+2026-08-31 upstream synchronization restored every upstream-owned path to
+upstream's version, production runs the upstream published image again, and
+`CARRIED_PATCHES` in `scripts/fork-gates/check-additive-only.sh` is empty.
+Audit: `000-docs/009-AA-AUDR-fork-contract-breach-2026-08-16.md`. The real
+fix is tracked upstream (block/buzz issue #4307) via the contribution lane.
 
 ## What is deliberately NOT here
 
