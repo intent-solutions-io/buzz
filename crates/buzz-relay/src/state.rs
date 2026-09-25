@@ -668,6 +668,12 @@ pub struct AppState {
     pub workflow_engine: Arc<WorkflowEngine>,
     /// Relay signing keypair — used to sign system messages (kind 40099).
     pub relay_keypair: nostr::Keys,
+    /// Process-local generation advertised for non-mesh huddle liveness.
+    ///
+    /// A fresh value on every relay start lets desktop clients retire persisted
+    /// admissions when an in-memory audio room is recreated at the same roster
+    /// revision after a restart. Mesh rooms use their Redis-fenced generation.
+    pub huddle_liveness_generation: Uuid,
 
     /// Recently-published event IDs for local-echo deduplication, keyed by
     /// `(community_id, event_id)`. Events fanned out in-process are added here;
@@ -697,7 +703,7 @@ pub struct AppState {
     pub audit_tx: Option<mpsc::Sender<buzz_audit::NewAuditEntry>>,
     /// Media storage client (S3/MinIO).
     pub media_storage: Arc<MediaStorage>,
-    /// Single-flight + cache state for the hourly S3 storage sweep. See
+    /// Cached worker snapshot and storage metric emission bookkeeping. See
     /// `storage_sweep` module docs; shared with the usage-metrics tick via
     /// `Arc` the same way other cross-tick poller state lives on `AppState`.
     pub storage_sweep: Arc<tokio::sync::Mutex<crate::storage_sweep::StorageSweepState>>,
@@ -713,6 +719,8 @@ pub struct AppState {
     pub audio_rooms: Arc<AudioRoomManager>,
     /// Set to `true` on SIGTERM — readiness probe returns 503.
     pub shutting_down: Arc<AtomicBool>,
+    /// Orders readiness gauge publication against terminal shutdown.
+    pub(crate) readiness: Arc<crate::readiness::ReadinessCoordinator>,
     /// Process start time — used by `/_status` endpoint.
     pub started_at: Instant,
     /// Shared, community-scoped NIP-98 replay prevention.
@@ -877,6 +885,7 @@ impl AppState {
             media_upload_semaphore: Arc::new(Semaphore::new(media_max_concurrent_uploads)),
             workflow_engine,
             relay_keypair,
+            huddle_liveness_generation: Uuid::new_v4(),
 
             local_event_ids: Arc::new(
                 moka::sync::Cache::builder()
@@ -914,6 +923,7 @@ impl AppState {
             git_pack_cache,
             audio_rooms: Arc::new(AudioRoomManager::new()),
             shutting_down: Arc::new(AtomicBool::new(false)),
+            readiness: Arc::new(crate::readiness::ReadinessCoordinator::default()),
             started_at: Instant::now(),
             nip98_replay,
             gif_http_client,
@@ -953,6 +963,23 @@ impl AppState {
                 handle: audit_worker_handle,
             },
         )
+    }
+
+    /// Atomically closes readiness publication before exposing shutdown to
+    /// the relay's other fast-path lifecycle checks.
+    pub fn begin_shutdown(&self) {
+        self.readiness.begin_shutdown();
+        self.shutting_down.store(true, Ordering::Release);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_readiness_evaluator(
+        &mut self,
+        evaluator: Arc<dyn crate::readiness::ReadinessEvaluator>,
+    ) {
+        self.readiness = Arc::new(crate::readiness::ReadinessCoordinator::with_evaluator(
+            evaluator,
+        ));
     }
 
     /// Inter-relay mesh handle. `None` ⇒ mesh-off / single-instance: callers
@@ -1224,7 +1251,7 @@ impl AppState {
     pub async fn revalidate_live_communities(&self) -> usize {
         let (closed, failures) =
             revalidate_registered_communities(&self.community_connections, |community_id| {
-                self.db.is_community_active(community_id)
+                self.db.is_community_active_for_maintenance(community_id)
             })
             .await;
         for (community_id, error) in failures {
@@ -1390,7 +1417,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::connection::{AuthState, ConnectionState};
     use std::collections::HashMap;
-    use tokio::sync::{Mutex, RwLock};
+    use tokio::sync::Mutex;
 
     /// Helper: create a ConnectionManager with one registered connection.
     /// Returns (manager, conn_id, receiver, ctrl_receiver, cancel,
@@ -1433,6 +1460,37 @@ pub(crate) mod tests {
         config.require_relay_membership = false;
         config.redis_url = "redis://127.0.0.1:1".to_string();
         let pool = sqlx::PgPool::connect_lazy(&config.database_url).expect("lazy pg pool");
+        build_test_state(config, pool).await
+    }
+
+    /// The same test state with an explicit database target. This lets handler
+    /// tests deterministically exercise fail-closed database seams without
+    /// depending on whether a developer has the normal test database running.
+    pub(crate) async fn test_state_with_database_url(database_url: &str) -> Arc<AppState> {
+        let mut config = crate::config::Config::from_env().expect("default config loads");
+        config.require_relay_membership = false;
+        config.redis_url = "redis://127.0.0.1:1".to_string();
+        config.database_url = database_url.to_owned();
+        config.read_database_url = None;
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .acquire_timeout(std::time::Duration::from_millis(100))
+            .connect_lazy(&config.database_url)
+            .expect("lazy pg pool");
+        build_test_state(config, pool).await
+    }
+
+    /// Build test state around a caller-owned writer pool. Production-path
+    /// lifecycle tests use this to hold the sole connection as a deterministic
+    /// barrier while AUTH waits in the real database acquisition path.
+    pub(crate) async fn test_state_with_database_pool(pool: sqlx::PgPool) -> Arc<AppState> {
+        let mut config = crate::config::Config::from_env().expect("default config loads");
+        config.require_relay_membership = false;
+        config.redis_url = "redis://127.0.0.1:1".to_string();
+        config.read_database_url = None;
+        build_test_state(config, pool).await
+    }
+
+    async fn build_test_state(config: crate::config::Config, pool: sqlx::PgPool) -> Arc<AppState> {
         let db = buzz_db::Db::from_pool(pool.clone());
         let redis_pool = deadpool_redis::Config::from_url(&config.redis_url)
             .create_pool(Some(deadpool_redis::Runtime::Tokio1))
@@ -1465,8 +1523,6 @@ pub(crate) mod tests {
         Arc::new(state)
     }
 
-    #[tokio::test]
-    #[ignore = "requires Postgres"]
     async fn audit_worker_retries_lock_timeout_until_original_entry_is_appended_once() {
         let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
         let observer = sqlx::PgPool::connect(&database_url)
@@ -1590,6 +1646,14 @@ pub(crate) mod tests {
             .expect("remove test community");
     }
 
+    mod postgres_tests {
+        #[tokio::test]
+        #[ignore = "requires Postgres"]
+        async fn audit_worker_retries_lock_timeout_until_original_entry_is_appended_once() {
+            super::audit_worker_retries_lock_timeout_until_original_entry_is_appended_once().await;
+        }
+    }
+
     #[test]
     fn send_to_resets_grace_counter_on_success() {
         let (mgr, id, _rx, _ctrl_rx, _cancel, bp) = setup_conn(16);
@@ -1655,7 +1719,7 @@ pub(crate) mod tests {
                 "test.local".to_string(),
             ),
             remote_addr: "127.0.0.1:1234".parse().unwrap(),
-            auth_state: RwLock::new(AuthState::Failed),
+            auth_state: std::sync::Mutex::new(AuthState::Failed),
             subscriptions: Arc::new(Mutex::new(HashMap::new())),
             send_tx: tx.clone(),
             ctrl_tx,
