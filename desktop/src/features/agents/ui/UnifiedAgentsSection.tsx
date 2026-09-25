@@ -6,9 +6,11 @@ import {
   resolveAgentCardAvatarUrl,
 } from "@/features/agents/lib/agentCardAvatar";
 import { resolveAgentCardModelLabel } from "@/features/agents/lib/agentCardModelLabel";
+import { effectiveAgentDescription } from "@/features/agents/lib/agentDescription";
 import { friendlyAgentLastError } from "@/features/agents/lib/friendlyAgentLastError";
 import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
 import { pickProfileAgent } from "@/features/agents/lib/pickProfileAgent";
+import { useIsArchivedPredicate } from "@/features/identity-archive/hooks";
 import { useUserProfileQuery } from "@/features/profile/hooks";
 import type { AgentPersona, ManagedAgent } from "@/shared/api/types";
 import type { ProfilePanelOpenOptions } from "@/shared/context/ProfilePanelContext";
@@ -94,9 +96,10 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
     onDeletePersona,
   } = props;
 
+  const isArchived = useIsArchivedPredicate();
   const { groups, ungrouped, unknown } = React.useMemo(
-    () => buildUnifiedGroups(personas, agents),
-    [personas, agents],
+    () => buildUnifiedGroups(personas, agents, isArchived),
+    [personas, agents, isArchived],
   );
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
   function toggle(key: string) {
@@ -129,7 +132,7 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
               onClick={onOpenCatalog}
             />
             {groups.map((group) => {
-              const profileAgent = pickProfileAgent(group.agents);
+              const profileAgent = pickProfileAgent(group.agents, isArchived);
               return (
                 <AgentPersonaCard
                   actions={(effectiveAvatarUrl, isEffectiveAvatarLoading) => (
@@ -251,11 +254,16 @@ function AgentPersonaCard({
   onStartPersona: (persona: AgentPersona) => void;
 }) {
   const title = persona.displayName;
-  const modelLabel = resolveAgentCardModelLabel({
-    agent,
-    personaModel: persona.model,
-    defaultModel,
-  });
+  // Card face second line: the authored description when one exists;
+  // otherwise fall back to the model label as before.
+  const subtitle =
+    effectiveAgentDescription(persona) ??
+    resolveAgentCardModelLabel({
+      agent,
+      personaModel: persona.model,
+      provider: persona.provider,
+      defaultModel,
+    });
   const isActive = agent ? isManagedAgentActive(agent) : false;
   const profileQuery = useUserProfileQuery(agent?.pubkey);
   const avatarUrl = agent
@@ -264,7 +272,6 @@ function AgentPersonaCard({
   const friendlyError = agent
     ? friendlyAgentLastError(agent.lastError, agent.lastErrorCode)?.copy
     : null;
-  const opensRuntimeTab = Boolean(agent && friendlyError && !isActive);
 
   return (
     <AgentIdentityCard
@@ -310,15 +317,17 @@ function AgentPersonaCard({
       avatarUrl={avatarUrl}
       dataTestId={`persona-agent-row-${persona.id}`}
       label={title}
-      modelLabel={modelLabel}
+      subtitle={subtitle}
       onClick={() => {
-        if (agent) {
-          onOpenAgentProfile(
-            agent.pubkey,
-            opensRuntimeTab ? { tab: "runtime" } : undefined,
-          );
-          return;
-        }
+        // The card's main click always opens the PERSONA target, never an
+        // explicit pubkey. A pubkey target is durable in the panel, so a pick
+        // made during the archive-snapshot fail-open window would strand the
+        // panel on an archived identity after hydration (Carl's cold-hydration
+        // race). A persona target re-resolves every render through the shared
+        // archive-aware selector, so it self-corrects to a live sibling — or
+        // persona-only mode when every instance is archived. Deliberate
+        // instance navigation and the runtime-error affordance keep their
+        // explicit-pubkey path via the avatar control below.
         onOpenPersonaProfile(persona);
       }}
       statusBadge={
@@ -390,11 +399,16 @@ function StandaloneAgentCard({
       avatarUrl={profileQuery.data?.avatarUrl}
       dataTestId={`managed-agent-${agent.pubkey}`}
       label={title}
-      modelLabel={resolveAgentCardModelLabel({
-        agent,
-        personaModel: null,
-        defaultModel,
-      })}
+      subtitle={
+        // Definition-less instance: no authored description exists, so fall
+        // back to the model label.
+        resolveAgentCardModelLabel({
+          agent,
+          personaModel: null,
+          provider: agent.provider,
+          defaultModel,
+        })
+      }
       onClick={() => {
         onOpenAgentProfile(
           agent.pubkey,

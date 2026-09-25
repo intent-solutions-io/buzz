@@ -160,8 +160,12 @@ with a TypeScript lookup table or an id comparison in a component.
    computer, including files, accounts, and connected tools"; remote names "the
    server it runs on, including any accounts and tools available there" —
    deliberately *not* the owner's files, which aren't theirs to describe on a
-   host they don't own. **An unknown location falls back to the local wording —
-   never hedge with "computer or server".** A remote host requires an
+   host they don't own. **For a persona-linked deployed agent, the profile Edit
+   dialog seeds access from the exact clicked instance and saves access through
+   `update_managed_agent`; persona behavior remains the definition default, but
+   must never bypass the instance command's stop, persist, publish, and restart
+   boundary.** An unknown location falls back to the local wording — never hedge
+   with "computer or server". A remote host requires an
    installed `buzz-backend-*` provider, and without one `WhereToRunSection`
    never renders, so "server" would name a concept the owner has never been
    shown; when it *is* remote they picked that host from the selector
@@ -197,6 +201,87 @@ with a TypeScript lookup table or an id comparison in a component.
    fields, and profile-wide activity selection. Caller context may control the
    panel shell or return navigation, but must not filter or replace profile
    content.
+14. **Thinking effort has two surfaces: a local-only WRITE control and a
+   read-only two-facts DISPLAY.** The write control is `EffortPickerField`
+   (`ui/EffortPickerField.tsx`), a self-contained section component mounted in
+   `AgentInstanceEditDialog` beside the Model block. It is direct-write, not
+   part of the frozen `UpdateManagedAgentInput` shape: each selection calls
+   `persistAgentEffortLevel` and invalidates the config-surface query, mirroring
+   the `setManagedAgentAutoRestart` standalone-setter precedent. Its gating and
+   option compute live in the pure helper `ui/effortPicker.ts`
+   (`effortPickerState`): the picker renders only when
+   `agent.backend.type === "local"` **AND** a `thought_level` `effortConfigId`
+   has been discovered from the running session (absent pre-first-session and
+   for runtimes/models without effort support). Local-only is load-bearing, not
+   cosmetic — the Rust command rejects non-local backends because remote effort
+   is set at deploy time via `policy_env`. Because it reads its inputs from the
+   config surface the dialog already fetches (`useAgentConfigSurface`) and owns
+   its own mutation, it does **not** thread new props through the over-1000-line
+   dialog (see rule 11): keep effort state inside the section component, never
+   as dialog-level props. The read-only display is the `thinkingEffort`
+   normalized field rendered by `AgentConfigPanel` via `NormalizedRow`, which
+   already shows both facts — `field.value` (canonical, the effort the next
+   spawn will launch with) and, when a running ACP session differs,
+   `field.overriddenValue` struck through (the live session's current effort).
+   No component owns "configured vs current" logic; the reader's canonical tier
+   ordering feeds both facts. Do not add a second effort write path or restate
+   the two-facts logic in a component.
+
+   **Cut invariant — live mid-conversation effort machinery was deliberately
+   removed.** Effort is spawn-scoped only: the worker holds one `startup_effort`
+   read from `BUZZ_ACP_EFFORT_LEVEL` and applies it once at session creation
+   (`apply_startup_effort` in `buzz-acp/src/pool.rs`); there is no pool-level
+   effort authority, no live effort switching, and no effort-ack frame. Do not
+   reintroduce a live effort-switch RPC, a pool effort field, or a
+   mid-conversation effort control without a plan ruling. The archived live-effort
+   machinery lives on `archive/claude-config-gaps-live-effort` for reference only.
+
+15. **The persona `description` is public display metadata.** It is optional,
+   capped at 280 characters, and validated through the shared visible-text
+   policy (`validate_agent_description_text` in `definition_validation.rs`)
+   on the raw authored bytes at create/update, snapshot import, publication,
+   inbound sync, and the untrusted catalog parser — rejected, never stripped.
+   It is deliberately EXCLUDED from `persona_content_hash`
+   (`description_change_does_not_change_content_hash`), so a description-only
+   edit never flips the restart badge on linked instances. Only the AUTHORED
+   description exists — there is deliberately no derived/generated fallback;
+   a blank description publishes an empty kind:0 `about`, exactly as before
+   the field existed. Agent and team snapshots carry the authored description
+   in the member profile's `about` and validate it before import. The trim/empty
+   resolution exists twice and must stay in
+   sync (port changes in the same PR): `lib/agentDescription.ts`
+   (`effectiveAgentDescription`) feeds display surfaces, and its Rust twin
+   (`managed_agents/agent_description.rs`, `effective_agent_description` /
+   `record_effective_description`) feeds the publish path, where
+   `profile_needs_sync` compares `about` (None == empty) so description edits
+   reconcile instead of being clobbered. Persona-linked instances do not own a
+   second description copy; snapshot export materializes the definition value
+   only into the portable snapshot, and a dangling link resolves no description
+   rather than reviving stale instance metadata. The agents-page card face shows the
+   authored description as its second line, falling back to the model label
+   when none exists (`UnifiedAgentsSection.tsx` composes it;
+   `AgentIdentityCard` takes a presentational `subtitle`). The community catalog
+   shows the same authored description before consent: a clamped two-line list
+   subtitle for scanning and the full safely wrapped value in persona detail.
+   The dialog field
+   lives in `ui/AgentDescriptionField.tsx` (`AgentIdentityFields`), not
+   inline in the over-1000-line dialogs.
+
+16. **Owner-only builds constrain managed runtimes, not relay-agent mentions.**
+    The compiled owner-only capability applies when Desktop starts or deploys a
+    managed agent. Independently operated relay agents with NIP-OA ownership
+    remain eligible in every build when their verified owner's signed
+    `respond_to` policy admits the viewer and relay membership includes the
+    target channel. Marked builds require that verified owner coordinate but do
+    not require it to equal the viewer; OSS builds retain compatibility with
+    self-authored legacy directory records. Keep native discovery and send-time
+    revalidation fail closed on invalid ownership or managed policy evidence,
+    and on missing membership or directory evidence; do not add a cross-owner
+    clamp to either mention path. Local `agents-data-changed` events
+    refresh only local persona/team/managed-agent caches; they must never
+    invalidate the remote relay directory.
+
+17. **Databricks model discovery has one shared catalog authority.** Desktop and ACP call the shared `buzz-agent` discovery library; Desktop passes the effective merged `DATABRICKS_MODEL_FILTER` explicitly, and the library applies it to raw workspace endpoint IDs and Unity Catalog model-service FQNs after the additive union. A successful filtered-empty catalog is authoritative: it stays empty, disables switching, and never falls through to configured or known-model fallback. UC FQNs are catalog data and always use the MLflow Chat Completions route, regardless of family-looking text in their components. Global Defaults preserves the discovered model ID as the selected value while its closed trigger renders the provider-scoped display label; do not force the raw persisted ID over that label.
 
 ## The tests that enforce this
 
@@ -226,10 +311,20 @@ with a TypeScript lookup table or an id comparison in a component.
   every profile tab when opened from Agents and from the agent's DM.
 - `ui/AgentConfigPanelPresentation.test.mjs` — shared profile/agent config rows
   show only effective values, with an em dash for unknown values.
+- `ui/effortPicker.test.mjs` — `effortPickerState` gating (local + discovered
+  `effortConfigId` renders; provider backend or missing configId hides) and
+  option/preselect compute, plus `effortSelectionToPersistedValue` sentinel →
+  null. This is where the v4 provider regression is pinned: the write control
+  must never render for a provider backend.
 - `desktop/tests/e2e/onboarding-agent-defaults.spec.ts` — onboarding behavior
   acceptance coverage for readiness, failure states, defaults, session-draft
   restoration, zero-write Skip, Next save failure/retry, navigation, and
   successful-empty vs failed optional-model discovery.
+- `desktop/tests/e2e/agents.spec.ts` — community catalog descriptions remain
+  visible in the list and full detail before Add agent, including long
+  unbroken Unicode text without horizontal overflow.
+- `lib/agentDescription.test.mjs` — authored-description resolution: trim,
+  blank/missing → null.
 - Rust: `runtime_metadata_env_vars` tests pin spawn-time key application.
 - Rust: persona sharing/retention tests pin relay+owner scoping, durable
   enqueue errors, relay rejection/unavailability, and accepted publication.

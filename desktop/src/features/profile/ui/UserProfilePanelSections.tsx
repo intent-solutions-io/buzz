@@ -87,7 +87,7 @@ export type ProfileSummaryViewProps = {
   isFollowing: boolean;
   isOwner: boolean | undefined;
   isSelf: boolean;
-  instances: ManagedAgent[];
+  instanceBuckets: { live: ManagedAgent[]; archived: ManagedAgent[] };
   managedAgent: ManagedAgent | undefined;
   agentInfoFields: ProfileField[];
   archiveActions: IdentityArchiveActions;
@@ -163,7 +163,7 @@ export function ProfileSummaryView({
   isFollowing,
   isOwner,
   isSelf,
-  instances,
+  instanceBuckets,
   managedAgent,
   agentInfoFields,
   archiveActions,
@@ -233,7 +233,8 @@ export function ProfileSummaryView({
     (managedAgent !== undefined ||
       runtimeConfigurationFields.length > 0 ||
       runtimeSettingsFields.length > 0 ||
-      instances.length > 0 ||
+      instanceBuckets.live.length > 0 ||
+      instanceBuckets.archived.length > 0 ||
       diagnosticsFields.length > 0 ||
       canOpenAgentLogs);
   const showDiagnosticsIngress =
@@ -535,7 +536,8 @@ export function ProfileSummaryView({
                   diagnosticsFields={diagnosticsFields}
                   diagnosticsSummary={diagnosticsTrailing}
                   configurationFields={runtimeFields}
-                  instances={instances}
+                  instances={instanceBuckets.live}
+                  archivedInstances={instanceBuckets.archived}
                   modelSettings={
                     isOwner === true && managedAgent !== undefined ? (
                       <AgentConfigPanel
@@ -640,6 +642,7 @@ function ProfileHero({
         }
         badgeBox={PROFILE_HERO_PRESENCE_BADGE.shell}
         className="h-20 w-20"
+        cornerRadius={isBot ? 24 : undefined}
         curve={STATUS_DOT_MASK_CURVE}
         cutout={PROFILE_HERO_PRESENCE_BADGE.cutout}
         size={80}
@@ -650,6 +653,7 @@ function ProfileHero({
           iconClassName="h-8 w-8"
           label={displayName}
           plain
+          shape={isBot ? "squircle" : "circle"}
           testId="user-profile-avatar"
         />
       </MaskedAvatarBadgeFrame>

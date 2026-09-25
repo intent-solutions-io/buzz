@@ -55,6 +55,17 @@ After any upstream synchronization: run `scripts/fork-gates/check-must-survive.s
 exists and that `git diff upstream/main` shows **only** paths from it (plus
 any deliberately carried patch named in the gate script).
 
+## Deliberately carried patches
+
+**None — empty by design.** The fork temporarily carried the
+invite/default-channel fix (PRs #26/#27, 2026-08-16) plus byte-for-byte
+backports of upstream migrations 27 and 28. That carry is **retired**: the
+2026-08-31 upstream synchronization restored every upstream-owned path to
+upstream's version, production runs the upstream published image again, and
+`CARRIED_PATCHES` in `scripts/fork-gates/check-additive-only.sh` is empty.
+Audit: `000-docs/009-AA-AUDR-fork-contract-breach-2026-08-16.md`. The real
+fix is tracked upstream (block/buzz issue #4307) via the contribution lane.
+
 ## What is deliberately NOT here
 
 Anything estate-specific: compose environment files, relay/owner/agent keys,
