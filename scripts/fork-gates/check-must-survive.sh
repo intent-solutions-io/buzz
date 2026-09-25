@@ -10,6 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 MUST_SURVIVE=(
   "FORK.md"
+  "REVIEW.md"
   "TEST_AUDIT.md"
   "000-docs/000-INDEX.md"
   "000-docs/001-PP-PLAN-buzz-adoption-master-blueprint.md"
@@ -17,6 +18,7 @@ MUST_SURVIVE=(
   "lefthook-local.yml"
   "scripts/fork-gates/check-additive-only.sh"
   "scripts/fork-gates/check-must-survive.sh"
+  "scripts/fork-gates/test-additive-only.sh"
   "scripts/audit-harness"
   ".audit-harness/VERSION"
   "CLAUDE.md"

@@ -1,75 +1,81 @@
 # Deploy posture (public-safe summary)
 
 **Artifact:** 003-OD-DEPL
-**Status:** ACTIVE — concrete operator detail lives in the private operations
-repo (`ops/buzz/` lane), never here.
+
+**Status:** ACTIVE — reconciled 2026-08-15. Concrete runtime detail lives only
+in the private operations repository.
 
 ## Shape
 
-> **Topology revised 2026-07-29 (decision `005`):** production runs on a
-> **dedicated VPS** with its **own** Caddy ingress (separate failure
-> domain). The stack described below, built on the shared estate host, is
-> **permanent staging**. Prod deploys the identical digest-pinned compose
-> with **fresh secrets — staging keys never promote**; `buzz.` DNS cuts
-> over at go-live and staging renames to `buzz-testing.intentsolutions.io`.
-> The per-service compose shape is otherwise as written here.
+- A dedicated production host runs the upstream compose architecture: relay,
+  PostgreSQL 17, Redis 7, S3-compatible media storage, and TLS ingress.
+- An independent non-production environment may be permanent or ephemeral. Its
+  purpose is release rehearsal, not hosting production data.
+- Production and non-production use separate keys and credentials.
+- Only TLS ingress is public. Databases, Redis, media administration, and health
+  ports remain private or loopback-bound.
+- Every long-running service has resource limits, a restart policy, persistent
+  storage where required, and an explicit health signal.
 
-- **Self-contained compose stack** (on staging today, mirrored to the
-  dedicated prod host): `buzz-relay`,
-  `buzz-db` (Postgres 17), `buzz-redis` (Redis 7), `buzz-minio` (interim
-  media store — upstream marks bundled MinIO eval-only; an S3-compatible
-  external store is a follow-up bead). Volumes: pgdata, media, git repos.
-- **Closed relay from first boot**: `BUZZ_REQUIRE_RELAY_MEMBERSHIP=true`,
-  `BUZZ_REQUIRE_AUTH_TOKEN=true`, `RELAY_OWNER_PUBKEY=<owner>`. Members via
-  `buzz-admin` / invite links only.
-- **Images**: upstream `ghcr.io/block/buzz` stable relay releases, promoted
-  **pinned by digest** — never `:main`, never a floating tag in production.
+## Images
 
-## Update lane — wrapped, not raw auto-pull
+Production runs a stable upstream `ghcr.io/block/buzz` relay release resolved to
+an immutable digest. It never runs `:main` or a floating tag. The optional pairing
+sidecar uses the same relay-image digest.
 
-Per new stable relay release, a scheduled updater executes:
+Fork-built images are allowed only for a declared carried patch that names its
+upstream issue or pull request. They are removed when upstream absorbs the fix.
 
-1. **Write isolation** — stop (or drain to read-only) the relay for the
-   update window, so nothing is written after the snapshot that a rollback
-   would silently destroy;
-2. **Bound recovery point** — `pg_dump -Fc` plus media-store and git-volume
-   snapshots taken back-to-back as ONE named, restorable recovery point
-   (never a stale daily as the restore point; "markers" alone are not
-   backups — each store must actually restore);
-3. **Promote by digest** (provenance verify when upstream publishes
-   signatures);
-4. **Auto-migrate** (upstream migrations are embedded + advisory-locked),
-   then a **functional probe** — a throwaway member key authenticates
-   (NIP-42), publishes an event, reads it back; an un-invited key is
-   refused. Liveness endpoints alone prove nothing.
-5. **On any probe failure: auto-revert, strictly ordered** — stop the new
-   release → restore every store from the bound recovery point (Postgres,
-   media, git — migrations are forward-only, so the prior image must never
-   start against migrated state) → repin the last-known-good digest →
-   start → re-run the probe → urgent alert. Bounded recovery, no 3 a.m.
-   human.
+## Closed-relay controls
 
-Stated RPO: zero for the update window itself (write-isolated + bound
-snapshot); ≤ 24 h only for host-loss disasters (daily backup chain).
-Desktop and mobile clients self-update independently; the Nostr wire
-tolerates modest client/relay skew.
+- relay authentication required;
+- relay membership required;
+- stable relay identity and explicit owner identity;
+- explicit browser and packaged-client CORS origins;
+- members admitted through supported administration and invite flows;
+- separate credentials for relay, stores, hooks, users, and optional agents.
 
-## Compensating edge controls
+## Backup posture
 
-Upstream rate limiting is defined but not enforced, so the edge compensates:
-request-body size caps, proxy read/idle timeouts, restrictive security
-headers (CSP, nosniff, frame and referrer policies) — the relay serves the
-web client + user media same-origin — plus OS-level connection limiting.
-Co-tenancy caps (memory/CPU/pids limits, size-capped media volume, isolated
-bridge network) ensure the chat stack cannot starve revenue surfaces.
+The daily encrypted recovery point is successful only when it contains:
 
-## Go-live gates (all blocking; details in blueprint `001` §E3)
+- a PostgreSQL custom-format dump;
+- a checksummed copy of every media object;
+- a readable Git-volume archive;
+- the exact compose/environment snapshot; and
+- image, schema, source, and environment provenance.
 
-Unauthenticated probe matrix · backup proof by restore drill ·
-update-wrapper planted-fault drill · rehearsed key runbooks · resource caps.
+A daily freshness check detects a stopped backup schedule. A weekly
+non-destructive drill extracts the newest archive, verifies the manifest and
+media checksums, restores PostgreSQL in scratch, and validates the Git archive.
+Live restoration requires an explicit human `--in-place` action.
 
-## Smoke + rollback
+Local recovery is not disaster recovery. An encrypted off-host replica and a
+restore receipt from that replica remain mandatory.
 
-Smoke: `/health`, `/_readiness`, NIP-11 GET, then the functional probe.
-Rollback: repin previous digest + `docker compose up -d`; migrations are
-forward-only, so the bound pre-upgrade snapshot is the restore point.
+## Upgrade posture
+
+Buzz application upgrades are not scheduled. An operator selects a stable
+release, takes a fresh complete backup, rehearses it outside production, resolves
+the image to a digest, and runs authenticated publish/readback and access-control
+checks before promoting the same digest.
+
+If the functional probe fails, the image can be repinned to the prior digest.
+Store restoration remains human-gated; an application probe must never
+automatically drop a production database.
+
+## Optional surfaces
+
+- Pairing is enabled only when mobile device pairing is needed and must complete
+  one real device handshake before an end-to-end claim.
+- Coding/curator agents are independent clients, never relay dependencies. They
+  remain disabled until their own identity, authorization, health, and least
+  privilege are proven.
+- Feed automation, plugins, and broader community programming are separate
+  product workstreams, not self-hosting requirements.
+
+## Minimum release receipt
+
+Every production digest change records the selected upstream release, resolved
+digest, complete recovery-point handle, rehearsal result, production functional
+probe, previous digest, and rollback command. Liveness alone is not acceptance.
