@@ -4,6 +4,13 @@
 **Supersedes:** the one-server topology answer in `003-OD-DEPL` §"Where it
 runs" and blueprint `001` Phase 2 as originally written.
 
+> **Current amendment (2026-08-15):** the dedicated production failure domain
+> remains the decision. The scheduled wrapped updater and automatic store-restore
+> design described below were retired in favor of manual, staging-first,
+> digest-pinned upgrades with human-gated live restoration. `001` and `003`
+> describe the current posture; the remainder of this record preserves the
+> original decision context.
+
 ## Decision
 
 Buzz **production runs on its own dedicated VPS**, not on the shared estate

@@ -33,5 +33,7 @@ jobs:
           git fetch --quiet upstream main
       - name: Additive-only check (diff vs upstream/main is allowlist-only)
         run: bash scripts/fork-gates/check-additive-only.sh upstream/main
+      - name: Additive-only matcher regression
+        run: bash scripts/fork-gates/test-additive-only.sh
       - name: Must-survive check (governance set intact)
         run: bash scripts/fork-gates/check-must-survive.sh

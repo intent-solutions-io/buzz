@@ -20,6 +20,8 @@ pre-push:
   commands:
     fork-additive-only:
       run: scripts/fork-gates/check-additive-only.sh
+    fork-additive-only-regression:
+      run: scripts/fork-gates/test-additive-only.sh
     fork-must-survive:
       run: scripts/fork-gates/check-must-survive.sh
     fork-harness-verify:

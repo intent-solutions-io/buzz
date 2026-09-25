@@ -2,6 +2,7 @@
 # surface. Any byte change to these must be a reviewed edit followed by
 # `scripts/audit-harness init`, never silent drift or rebase loss.
 FORK.md
+REVIEW.md
 TEST_AUDIT.md
 000-docs/*.md
 scripts/fork-gates/*.sh

@@ -6,12 +6,21 @@
 > `.github/workflows/fork-gates.yml`). Both are listed in `FORK.md`'s must-survive
 > table and the fork-gate allowlist.
 
+`AGENTS.md` is upstream-owned and must remain byte-identical to the fetched
+`upstream/main` version. Do not copy its rules into fork files or patch it on a
+governance branch; the additive-only gate enforces that it stays current whenever
+the fork synchronizes with upstream.
+
 ## Read order (mandatory)
 
 1. **`AGENTS.md`** — upstream's agent contributor guide. All upstream rules
    (hermit activation, `just ci`, DCO `-s`, Nostr-first design law) apply
    unchanged to all upstream code.
 2. **`FORK.md`** — the fork contract. It governs everything this file summarizes.
+3. **`REVIEW.md`** — fork-specific review guidance for contract, disclosure,
+   evidence, and branch-lane checks.
+4. **`000-docs/000-INDEX.md`** — public-safe planning. Its `006-DR-STND`
+   record is canonical for Buzz asset names and source/deployment boundaries.
 
 ## The fork contract (binding — violations are defects)
 
@@ -28,9 +37,10 @@
 - **A deliberate carry requires a `CARRIED_PATCHES` entry** in
   `scripts/fork-gates/check-additive-only.sh` — it is **empty by design**, and
   the entry is removed the moment upstream merges the patch.
-- **Run both fork gates before any PR:**
+- **Run the fork gates and matcher regression before any PR:**
   `scripts/fork-gates/check-additive-only.sh` and
-  `scripts/fork-gates/check-must-survive.sh`. The same checks run in CI
+  `scripts/fork-gates/check-must-survive.sh`, plus
+  `scripts/fork-gates/test-additive-only.sh`. The same checks run in CI
   (`.github/workflows/fork-gates.yml`) as a **required check** on `main` — a PR
   that modifies upstream-owned paths cannot merge.
 
